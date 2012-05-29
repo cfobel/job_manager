@@ -230,13 +230,13 @@ class SharcNetTrial(BaseTrial):
     def __init__(self, params, time, priority, 
                 out_path=None, exe_path=None, connection=None ):
        
-        BaseTrial.__init__(self, connection=conenction, env='sharcnet.yml',
+        BaseTrial.__init__(self, connection=connection, env='sharcnet.yml',
                                 out_path=out_path, exe_path=exe_path,
                                 params=params, time=time, priority=priority)
 
     def submit(self):
         # set the PATH environment
-        dir_ = self.out_path / self.result_dir / self.hash_path
+        dir_ = self.out_path / self.hash_path
         command = "PATH=%s\n sqsub -r %d -o %s python '%s %s'" % (
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
                    self.time, str(dir_/path('log.txt')), 
@@ -293,7 +293,7 @@ def main():
     params = dict()
     params['word'] = 'hello world'
     params['times'] = 12
-    out, err = launch(params, 'waiting', 'coalition', 'resound.py')
+    out, err = launch(params, 'waiting', 'sharcnet', 'resound.py')
     for x in out: print x
     for y in err: print y
 
