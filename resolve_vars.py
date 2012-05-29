@@ -6,6 +6,19 @@ from path import path
 import yaml
 
 
+def resolve_path(env_vars, path_):
+    resolve_env_vars(env_vars)
+    did_replace = True
+
+    for pure in env_vars.keys():
+        path_ = re.sub(pattern=r'\$%s' % pure, repl=env_vars[pure],
+        string=path_) 
+        path_ = re.sub(pattern=r'//', repl='/', string=path_)        
+
+
+    return path(path_)
+
+
 def resolve_env_vars(env_vars):
     cre_env = re.compile(r'\$\{(.*?)\}')
 

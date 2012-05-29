@@ -7,60 +7,138 @@ from path import path
 import hashlib
 import getpass
 import re
+from resolve_vars import resolve_path, resolve_env_vars
 
+
+class Connection(object):
+    def __init__(self, hostname='127.0.0.1', username=None, password=''):
+        if not username:
+            username = getpass.getuser()
+        self.ssh = paramiko.SSHClient()
+        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            
+        while True:
+            try:
+                self.ssh.connect(hostname=hostname, username=username,
+                               password=password)
+                break
+            except:
+                print 'Connection failed'
+                password = getpass.getpass(prompt='%s password:' %username)
+                if not password:
+                    exit(1)
+        self.sftp = self.ssh.open_sftp()
+        self.username = username
+
+    def mkdir(self, dir_):
+        return self.sftp.mkdir(str(dir_))
+
+    def listdir(self, dir_):
+        return self.sftp.listdir(str(dir_))
+
+    def open(self, file_, mode='c'):
+        return self.sftp.open(str(file_), mode)
+
+    def exec_command(self, command):
+        return self.ssh.exec_command(command)
+
+    def get_username(self):
+        return self.username
+
+
+class CoalitionConnection(Connection):
+    def __init__(self, hostname='131.104.49.31', port=19211, username='coalition', password=''):
+        self.control = CoalitionControl("http://%s:%d" %(hostname, port))
+        Connection.__init__(self, hostname=hostname, username=username, 
+                            password=password )
+ 
+    def add(self, **kwargs):
+        return self.control.add(**kwargs)
+
+class SharcNetConnection(Connection):
+
+    def __init__(self, hostname='kraken.sharcnet.ca', username=None, password=''):
+        Connection.__init__(self, hostname=hostname, username=username,
+                            password=password )        
+ 
 
 # TODO add a check status method for after running.
-
 class BaseTrial(object):
-    def __init__(self, ssh, sftp, out_path, exe_path, exe_name, 
-                params, result_dir, time, priority, verbose=True):
+    _default_connection = None
+
+    @property
+    def connection(self):
+        if self._default_connection:
+            return self._default_connection
+        elif self._connection:     
+            return self._connection
+        else:
+            raise ValueError()
+
+    @connection.setter
+    def connection(self, value):
+        self._connection = value
+
+    def __init__(self, out_path, exe_path, params, time, 
+                 priority, connection=None, verbose=True, env='BaseTrial.yml'):
         
-        self.ssh = ssh
+        self._connection = None
+        if connection:
+            self.connection = connection
+
         self.verbose = verbose
-        self.sftp = sftp
         self.out_path = path(out_path)
         self.exe_path = path(exe_path)
         self.id_ = None
-        self.exe_name = path(exe_name)
-        self.result_dir = path(result_dir)
         self.priority = priority
         self.time = time
         if isinstance(params, dict):
             params = sorted(list(params.iteritems()))
         self.params = params
-        sha1 = hashlib.sha1(str((self.exe_name, self.params)))
+        sha1 = hashlib.sha1(str((self.exe_path, self.params)))
         self.hash_path = path(sha1.hexdigest())
+        parent = path(__file__).parent
+        env_file = path(parent / path('environments') / path(env))
+        if env_file.isfile():
+            env = yaml.load(open(env_file))
+            self.env = env
+            resolve_env_vars(self.env)
+            self.exe_path = path(resolve_path(env, self.exe_path))
+            self.out_path = path(resolve_path(env, self.out_path))
+        elif verbose:
+            print 'No Enviroment path found'
 
+        print self.exe_path, self.out_path
 
     def make_output_dir(self):
         # Check and see if the result directory has been made.
-        if self.result_dir not in self.sftp.listdir(str(self.out_path)):
+        parent = path(self.out_path).parent
+        if self.out_path not in self.connection.listdir(parent):
             try:
-                self.sftp.mkdir(str(self.out_path/self.result_dir))
+                self.connection.mkdir(self.out_path)
                 if self.verbose: print 'created result directory'
             except:
-                print 'failed to make results parent'
+                print 'failed to make ', self.out_path
         elif self.verbose: 
-            print 'result directory exists'
+            print self.out_path, ' exists'
         
-        result_path = self.out_path / self.result_dir
-        if self.hash_path not in self.sftp.listdir(str(result_path)):
+        if self.hash_path not in self.connection.listdir(self.out_path):
             try:
-                self.sftp.mkdir(str(result_path / self.hash_path))
+                self.connection.mkdir(self.out_path / self.hash_path)
                 if self.verbose: print 'created trial directory' 
             except:
-                print 'failed to make results trial directory'
+                print 'failed to make ', self.out_path / self.hash_path
         elif self.verbose:
-            print 'trial result directory exists'
+            print self.out_path / self.hash_path,  ' exists'
 
 
     def write_config(self):
-        config = (self.exe_path / self.exe_name, self.params)
-        config_path = path(self.out_path / self.result_dir / self.hash_path)
-        if 'config.yml' not in self.sftp.listdir(str(config_path)):
+        config = (self.exe_path, self.params)
+        config_path = path(self.out_path / self.hash_path)
+        if 'config.yml' not in self.connection.listdir(config_path):
             try:
-                conf_file = self.sftp.open( str(
-                                             config_path / path('config.yml')),
+                conf_file = self.connection.open(
+                                            config_path / path('config.yml'),
                                              mode='w')
 
                 conf_file.write(yaml.dump(config))
@@ -80,9 +158,11 @@ class BaseTrial(object):
         as the argument and make use of time, priority,
         and id whenever possible.
         """
-        dir_ = str(self.out_path/self.result_dir/self.hash_path)
-        command = "%s %s" %(str(self.exe_path/path('job_manager/wrapper.py')), dir_)
-        stdin, stdout, stderr = self.ssh.exec_command(command)
+        dir_ = self.out_path / self.hash_path
+        path_ = '$PYVPR_EXAMPLESwrapper.py'
+        path_ = resolve_path(self.env, path_)
+        command = "%s %s" %(path_, dir_)
+        stdin, stdout, stderr = self.connection.exec_command(command)
         output = [x for x in stdout]
         errors = [y for y in stderr]
         return output, errors
@@ -97,56 +177,20 @@ class BaseTrial(object):
 # the user may modify ssh to use a differnt user
 # and then the sftp is under a different user's directory
 class CoalitionTrial(BaseTrial):
-    ssh = None 
-    sftp = None
-    control = None
+    def __init__(self, params, time, priority, 
+                 exe_path=None, out_path=None, conection=None ):
 
-    def __init__(self, exe_name, params, time, priority, result_dir, 
-                 exe_path=None, out_path=None, username=None, password=""):
-
-        if not username:
-            username = getpass.getuser()
-        if not exe_path:
-            exe_path = '/home/coalition/'
-        if not out_path:
-            out_path = '/var/www/pyvpr_results/'
-
-        if CoalitionTrial.ssh == None:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            while True:
-                try:
-                    ssh.connect(hostname='131.104.49.31', username=username,
-                               password=password)
-                    break
-                except:
-                    print 'Connection failed'
-                    password = getpass.getpass(prompt='%s password:' %username)
-                    if not password:
-                        exit(1)
-
-            CoalitionTrial.ssh = ssh
-
-        if CoalitionTrial.sftp == None:    
-            CoalitionTrial.sftp = CoalitionTrial.ssh.open_sftp()
-
-        if CoalitionTrial.control == None:
-            CoalitionTrial.control = CoalitionControl(
-                                        'http://131.104.49.21:19211')
-
-        BaseTrial.__init__(self, ssh=CoalitionTrial.ssh, 
-                            sftp=CoalitionTrial.sftp,
+        BaseTrial.__init__(self, connection=connection, env='coalition.yaml',
                             out_path=out_path, exe_path=exe_path,
-                            params=params, time=time, priority=priority,
-                            exe_name=exe_name, result_dir=result_dir )
+                            params=params, time=time, priority=priority)
 
 
     def submit(self):
-        dir_ = self.out_path / self.result_dir / self.hashPath
-        self.id_ = CoalitionTrial.control.add(
-                                affinity=str(self.result_dir.namebase), 
-                                dir=self.exe_path,
-                                command='wrapper %s' %dir_ )
+        dir_ = self.out_path / self.hashPath
+        self.id_ = self.connection.add(
+                         affinity=str(self.out_path.namebase), 
+                         dir=self.exe_path,
+                         command='wrapper %s' %dir_ )
         # use id to get status and return (output, errors) for submission 
         return list(), list()
 
@@ -156,10 +200,6 @@ class CoalitionTrial(BaseTrial):
 # The class members once set, are permanent the user would have to manually
 # modify SharcNetTrial.ssh and sftp to use a different server.
 class SharcNetTrial(BaseTrial):
-    ssh = None
-    sftp = None
-    username = None
-
     PATH = """/opt/sharcnet/archive_tools/1.1/bin\
 :/opt/sharcnet/compile/1.3/bin\
 :/opt/sharcnet/vmd/1.8.7/bin\
@@ -186,51 +226,22 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
-    def __init__(self, exe_name, params, time, priority, result_dir, 
-                out_path=None, exe_path=None, username=None, server='kraken'):
-        if not SharcNetTrial.username:
-            if not username:
-                username = getpass.getuser()
-            SharcNetTrial.username = username
-        if not exe_path:
-            exe_path = '/home/%s/' %username
-        if not out_path:
-            out_path = '/work/%s/pyvpr_results/' %username
-
-        if SharcNetTrial.ssh == None:
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            password = ""
-            while True:
-                try:
-                    ssh.connect(hostname='%s.sharcnet.ca' %server, 
-                                username=username, password=password)
-                    break
-                except:
-                    print 'Connection Failed.'
-                    password = getpass.getpass(prompt='%s-password' %username)
-                    if not password:
-                        exit(1)
-            SharcNetTrial.ssh = ssh
-
-        if SharcNetTrial.sftp == None:
-            SharcNetTrial.sftp = SharcNetTrial.ssh.open_sftp()
-
-        BaseTrial.__init__(self, ssh=SharcNetTrial.ssh, 
-                                sftp=SharcNetTrial.sftp,
+    def __init__(self, params, time, priority, 
+                out_path=None, exe_path=None, connection=None ):
+       
+        BaseTrial.__init__(self, connection=conenction, env='sharcnet.yml',
                                 out_path=out_path, exe_path=exe_path,
-                                params=params, time=time, priority=priority,
-                                exe_name=exe_name, result_dir=result_dir )
+                                params=params, time=time, priority=priority)
 
     def submit(self):
         # set the PATH environment
         dir_ = self.out_path / self.result_dir / self.hash_path
         command = "PATH=%s\n sqsub -r %d -o %s python '%s %s'" % (
-                   SharcNetTrial.PATH + ":/home/%s/bin" %SharcNetTrial.username,
+                   SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
                    self.time, str(dir_/path('log.txt')), 
                    str(self.exe_path/path('job_manager/wrapper.py')), str(dir_))
 
-        stdin, stdout, stderr = self.ssh.exec_command(command)
+        stdin, stdout, stderr = self.connection.exec_command(command)
 
         output = [line for line in stdout]
         errors = [line for line in stderr]
@@ -255,27 +266,22 @@ def launch( params, state, queue, prog_path ):
         return None, None
 
     if queue == 'local':
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(hostname='localhost', 
-                    username=getpass.getuser(), 
-                    password=getpass.getpass())
-        sftp = ssh.open_sftp()
+        BaseTrial._default_connection = Connection()
+        Trial = BaseTrial(  exe_path='$PYVPR_EXAMPLES/resound.py',
+                            out_path='$PYVPR_RESULTS/new', 
+                            time=1, priority=1, params=params)
 
-        Trial = BaseTrial(ssh=ssh, sftp=sftp, 
-                            exe_path='/home/rpattiso/pyvpr_example/SharCoal',
-                            out_path='/home/rpattiso/pyvpr_example/SharCoal', 
-                            time=1, priority=1, result_dir="new", 
-                            exe_name=prog_path, params=params)
-
-    elif queue == 'coalition': 
-        Trial = CoalitionTrial(time=1, priority=1,  result_dir="100", 
-                                exe_name=prog_path, params=params, 
-                                username='coalition')
+    elif queue == 'coalition':
+        CoalitionTrial._default_conenction = CoalitionConnection() 
+        Trial = CoalitionTrial(time=1, priority=1, params=params, 
+                               exe_path='$PYVPR_EXAMPLES/resound.py',
+                               out_path='$PYVPR_RESULTS/new' )
 
     elif queue == 'sharcnet':
-        Trial = SharcNetTrial(time=1, priority=1,  result_dir="123", 
-                               exe_name=prog_path, params=params)
+        SharcNetTrial._default_conenction = SharcNetConnection()
+        Trial = SharcNetTrial(time=1, priority=1, params=params, 
+                               exe_path='$PYVPR_EXAMPLES/resound.py',
+                               out_path='$PYVPR_RESULTS/new' )
 
     Trial.make_output_dir()
     Trial.write_config()
