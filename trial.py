@@ -113,7 +113,8 @@ class BaseTrial(object):
     def make_output_dir(self):
         # Check and see if the result directory has been made.
         parent = path(self.out_path).parent
-        if self.out_path not in self.connection.listdir(parent):
+        if self.out_path.namebase not in self.connection.listdir(parent):
+            print self.connection.listdir(parent)
             try:
                 self.connection.mkdir(self.out_path)
                 if self.verbose: print 'created result directory'
@@ -178,15 +179,15 @@ class BaseTrial(object):
 # and then the sftp is under a different user's directory
 class CoalitionTrial(BaseTrial):
     def __init__(self, params, time, priority, 
-                 exe_path=None, out_path=None, conection=None ):
+                 exe_path=None, out_path=None, connection=None ):
 
-        BaseTrial.__init__(self, connection=connection, env='coalition.yaml',
+        BaseTrial.__init__(self, connection=connection, env='coalition.yml',
                             out_path=out_path, exe_path=exe_path,
                             params=params, time=time, priority=priority)
 
 
     def submit(self):
-        dir_ = self.out_path / self.hashPath
+        dir_ = self.out_path / self.hash_path
         self.id_ = self.connection.add(
                          affinity=str(self.out_path.namebase), 
                          dir=self.exe_path,
@@ -272,13 +273,13 @@ def launch( params, state, queue, prog_path ):
                             time=1, priority=1, params=params)
 
     elif queue == 'coalition':
-        CoalitionTrial._default_conenction = CoalitionConnection() 
+        CoalitionTrial._default_connection = CoalitionConnection() 
         Trial = CoalitionTrial(time=1, priority=1, params=params, 
                                exe_path='$PYVPR_EXAMPLES/resound.py',
                                out_path='$PYVPR_RESULTS/new' )
 
     elif queue == 'sharcnet':
-        SharcNetTrial._default_conenction = SharcNetConnection()
+        SharcNetTrial._default_connection = SharcNetConnection()
         Trial = SharcNetTrial(time=1, priority=1, params=params, 
                                exe_path='$PYVPR_EXAMPLES/resound.py',
                                out_path='$PYVPR_RESULTS/new' )
@@ -292,7 +293,7 @@ def main():
     params = dict()
     params['word'] = 'hello world'
     params['times'] = 12
-    out, err = launch(params, 'waiting', 'local', 'resound.py')
+    out, err = launch(params, 'waiting', 'coalition', 'resound.py')
     for x in out: print x
     for y in err: print y
 
