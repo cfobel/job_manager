@@ -38,8 +38,8 @@ def run(result_path, parent, verbose=True):
             # any yaml file? or error
             pass
 
-    if path(parent / path('env_vars.yml')).isfile():
-        paths = yaml.load(open(parent / 'env_vars.yml', 'r'))
+    if path(parent / path('environments/env_vars.yml')).isfile():
+        paths = yaml.load(open(parent / 'environments/env_vars.yml', 'r'))
         resolve_env_vars(paths)
         for k , v in paths.iteritems():
             os.environ[k] = ':'.join(v)
