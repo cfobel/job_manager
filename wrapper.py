@@ -58,23 +58,28 @@ def run(result_path, parent, verbose=True):
     pkg = yaml.load(yam)
     
     # TODO allow for list arguments as well not in tuple form?.
-    params = [pkg[0]] # add executable name ./program.py
+    params = [str(pkg[0])] # add executable name ./program.py
+    
     for k, v in pkg[1]:
-        if k and v:
+        if k and v is not None:
             params.append('-%s' %k)
             params.append('%s' %v)
-        elif v:
+        elif v is not None:
             params.append('%s' %v)
         elif k:
             params.append('-%s' %k)
     # all programs must accept '-o output dir'
     params.append('-o')
     params.append('%s' %result_path)
-
+    
     start_time = datetime.now()
 
     try:
-        subprocess.call(params)
+        #subprocess.call(params, shell=True)
+        command = ' '.join(params)
+        print command
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        print p.communicate()
     except:
         log = open(path_ / '.error', 'w' )
         log.write('execute')
