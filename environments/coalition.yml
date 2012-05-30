@@ -1,2 +1,14 @@
-{JOB_MANAGER: /home/coalition/job_manager/, PYVPR_EXAMPLES: /home/coalition/pyvpr_examples/,
-  PYVPR_RESULTS: /var/www/pyvpr_results/}
+HOME: ['/home/coalition']
+CPATH: ['${HOME}/local/include']
+LD_LIBRARY_PATH: ['${HOME}/local/lib', '${HOME}/local/lib/tbb', /usr/lib/nvidia-current,
+  /usr/include/python2.7/]
+LIBRARY_PATH: ['${HOME}/local/lib', '${HOME}/local/lib/tbb', /usr/lib/nvidia-current, 
+  /usr/include/python2.7/]
+PATH: ['${HOME}/.scripts/bin', '${HOME}/local/bin', '${HOME}/local/opt/hmetis-1.5-linux',
+  /usr/local/cuda/bin, ]
+PYTHONPATH: ['${HOME}/local/pylib']
+BENCHMARK_PATH: ['/var/benchmarks']
+VPR_GOLD_ROOT: ['${HOME}/VPR_v5_gold']
+VPR_ROOT: ['${HOME}/vpr-v5-mod']
+PYVPR_RESULTS: ['/var/www/pyvpr_results']
+PYVPR_EXPERIMENTS: ['${HOME}/pyvpr_experiments']
