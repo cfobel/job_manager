@@ -102,9 +102,7 @@ class BaseTrial(object):
         self.wrap_path = path('./')
         if env_file.isfile():
             env = yaml.load(open(env_file))
-            self.env = env
             resolve_env_vars(self.env)
-            self.exe_path = resolve_path(env, self.exe_path)
             self.out_path = resolve_path(env, self.out_path)
             self.wrap_path = resolve_path(env, '$JOB_MANAGER_ROOT')
         elif verbose:

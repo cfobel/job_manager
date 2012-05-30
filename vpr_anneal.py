@@ -28,7 +28,7 @@ if __name__ == "__main__":
     server = sys.argv[4][2:]
 
     # create the tuple of positional arguments and relative path to executable
-    prog = '$PYVPR_EXPERIMENTS/77/sa_x_ga.py'
+    prog = '$PYTHON_EXE $PYVPR_EXPERIMENTS/77/sa_x_ga.py'
 
     params = dict()
     params['netlist_files'] = net_path
