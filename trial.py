@@ -99,14 +99,14 @@ class BaseTrial(object):
         self.hash_path = path(sha1.hexdigest())
         parent = path(__file__).parent
         env_file = path(parent / path('environments') / path(env))
-        self.wrap_path = path('./wrapper')
+        self.wrap_path = path('./')
         if env_file.isfile():
             env = yaml.load(open(env_file))
             self.env = env
             resolve_env_vars(self.env)
             self.exe_path = resolve_path(env, self.exe_path)
             self.out_path = resolve_path(env, self.out_path)
-            self.wrap_path = resolve_path(env, '$JOB_MANAGER/wrapper.py')
+            self.wrap_path = resolve_path(env, '$JOB_MANAGER_ROOT')
         elif verbose:
             print 'No Enviroment path found'
 
@@ -164,7 +164,7 @@ class BaseTrial(object):
         and id whenever possible.
         """
         dir_ = self.out_path / self.hash_path
-        path_ = '$PYVPR_EXAMPLES/wrapper.py'
+        path_ = self.wrap_path / path('wrapper.py')
         path_ = resolve_path(self.env, path_)
         command = "%s %s" %(path_, dir_)
         stdin, stdout, stderr = self.connection.exec_command(command)
@@ -195,7 +195,7 @@ class CoalitionTrial(BaseTrial):
         self.id_ = self.connection.add(
                          affinity=str(self.out_path.namebase), 
                          dir=self.exe_path.parent,
-                         command='%s %s' %(self.wrap_path, dir_) )
+                         command='%s %s' %( self.wrap_path / path('wrapper.py'), dir_) )
         # use id to get status and return (output, errors) for submission 
         return list(), list()
 
@@ -244,7 +244,7 @@ class SharcNetTrial(BaseTrial):
         command = "PATH=%s\n sqsub --test -r %d -o %s python '%s %s'" % (
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
                    self.time, str(dir_/path('log.txt')), 
-                   str(self.exe_path/path('job_manager/wrapper.py')), str(dir_))
+                   str(self.wrap_path / path('wrapper.py')), str(dir_))
 
         stdin, stdout, stderr = self.connection.exec_command(command)
 
