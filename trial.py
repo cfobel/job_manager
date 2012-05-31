@@ -47,7 +47,9 @@ class Connection(object):
 
 
 class CoalitionConnection(Connection):
-    def __init__(self, hostname='131.104.49.31', port=19211, username='coalition', password=''):
+    def __init__(self, hostname='131.104.49.31', port=19211, username='coalition',
+                 password=''):
+
         self.control = CoalitionControl("http://%s:%d" %(hostname, port))
         Connection.__init__(self, hostname=hostname, username=username, 
                             password=password )
@@ -163,7 +165,6 @@ class BaseTrial(object):
         """
         dir_ = self.out_path / self.hash_path
         path_ = self.wrap_path / path('wrapper.py')
-        path_ = resolve_path(self.env, path_)
         command = "%s %s" %(path_, dir_)
         stdin, stdout, stderr = self.connection.exec_command(command)
         output = [x for x in stdout]
@@ -180,6 +181,8 @@ class BaseTrial(object):
 # the user may modify ssh to use a differnt user
 # and then the sftp is under a different user's directory
 class CoalitionTrial(BaseTrial):
+    _default_connection = None
+
     def __init__(self, params, time, priority, 
                  exe_path=None, out_path=None, connection=None ):
 
@@ -203,6 +206,7 @@ class CoalitionTrial(BaseTrial):
 # The class members once set, are permanent the user would have to manually
 # modify SharcNetTrial.ssh and sftp to use a different server.
 class SharcNetTrial(BaseTrial):
+    _default_connection = None
     PATH = """/opt/sharcnet/archive_tools/1.1/bin\
 :/opt/sharcnet/compile/1.3/bin\
 :/opt/sharcnet/vmd/1.8.7/bin\
@@ -263,42 +267,29 @@ class SharcNetTrial(BaseTrial):
     sends a job to  sharcnet or coalition.
     Intended for debugging.
 """
-def launch( params, state, queue, prog_path ):
+def launch( params, state, queue, prog_path, out_path ):
 
     if state != 'waiting':
         return None, None
 
     if queue == 'local':
         BaseTrial._default_connection = Connection()
-        Trial = BaseTrial(  exe_path='$PYVPR_EXAMPLES/resound.py',
-                            out_path='$PYVPR_RESULTS/new', 
+        Trial = BaseTrial(  exe_path=prog_path,
+                            out_path=out_path, 
                             time=1, priority=1, params=params)
 
     elif queue == 'coalition':
         CoalitionTrial._default_connection = CoalitionConnection() 
         Trial = CoalitionTrial(time=1, priority=1, params=params, 
-                               exe_path='$PYVPR_EXAMPLES/resound.py',
-                               out_path='$PYVPR_RESULTS/new' )
+                               exe_path=prog_path,
+                               out_path=out_path )
 
     elif queue == 'sharcnet':
         SharcNetTrial._default_connection = SharcNetConnection()
         Trial = SharcNetTrial(time=1, priority=1, params=params, 
-                               exe_path='$PYVPR_EXAMPLES/resound.py',
-                               out_path='$PYVPR_RESULTS/new' )
+                               exe_path=prog_path,
+                               out_path=out_path )
 
     Trial.make_output_dir()
     Trial.write_config()
     return Trial.submit()
-
-
-def main():    
-    params = dict()
-    params['word'] = 'hello world'
-    params['times'] = 12
-    out, err = launch(params, 'waiting', 'sharcnet', 'resound.py')
-    for x in out: print x
-    for y in err: print y
-
-
-if __name__ == "__main__":
-    main()
