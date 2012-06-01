@@ -122,6 +122,7 @@ class BaseTrial(object):
             resolve_env_vars(env)
             self.out_path = resolve_path(env, self.out_path)
             self.wrap_path = resolve_path(env, '$JOB_MANAGER_ROOT')
+            self.python_path = resolve_path(env, '$WORK_PATH/local/bin/python') 
         elif verbose:
             print 'No Enviroment path found'
 
@@ -258,9 +259,10 @@ class SharcNetTrial(BaseTrial):
     def submit(self):
         # set the PATH environment
         dir_ = self.out_path / self.hash_path
-        command = "PATH=%s\n sqsub --test -r %d -o %s python '%s %s'" % (
+        command = "PATH=%s\n sqsub --test -r %d -o %s %s %s %s" % (
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
                    self.time, str(dir_/path('log.txt')), 
+                   self.python_path,
                    str(self.wrap_path / path('wrapper.py')), str(dir_))
 
         stdin, stdout, stderr = self.connection.exec_command(command)
