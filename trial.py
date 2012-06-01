@@ -115,12 +115,11 @@ class BaseTrial(object):
         self.params = params
         sha1 = hashlib.sha1(str((self.exe_path, self.params)))
         self.hash_path = path(sha1.hexdigest())
-        parent = path(__file__).parent
-        env_file = path(parent / path('environments') / path(env))
+        env_file = path('./environments') / path(env)
         self.wrap_path = path('./')
         if env_file.isfile():
             env = yaml.load(open(env_file))
-            resolve_env_vars(self.env)
+            resolve_env_vars(env)
             self.out_path = resolve_path(env, self.out_path)
             self.wrap_path = resolve_path(env, '$JOB_MANAGER_ROOT')
         elif verbose:
@@ -199,12 +198,12 @@ class BaseTrial(object):
 class CoalitionTrial(BaseTrial):
     _default_connection = None #CoalitionConnection()
 
-    def __init__(self, params, time, priority, 
+    def __init__(self, params, time, priority, env='coalition.yml',
                  exe_path=None, out_path=None, connection=None ):
 
-        BaseTrial.__init__(self, connection=connection, env='coalition.yml',
+        BaseTrial.__init__(self, connection=connection,
                             out_path=out_path, exe_path=exe_path,
-                            params=params, time=time, priority=priority)
+                            params=params, time=time, priority=priority, env=env)
 
 
     def submit(self):
@@ -250,11 +249,11 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
     def __init__(self, params, time, priority, 
-                out_path=None, exe_path=None, connection=None ):
+                out_path=None, exe_path=None, connection=None, env='sharcnet.yml'):
        
-        BaseTrial.__init__(self, connection=connection, env='sharcnet.yml',
+        BaseTrial.__init__(self, connection=connection, 
                                 out_path=out_path, exe_path=exe_path,
-                                params=params, time=time, priority=priority)
+                                params=params, time=time, priority=priority, env=env)
 
     def submit(self):
         # set the PATH environment
