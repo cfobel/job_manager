@@ -11,8 +11,13 @@ def resolve_path(env_vars, path_):
     did_replace = True
 
     for pure in env_vars.keys():
-        path_ = re.sub(pattern=r'\$%s' % pure, repl=env_vars[pure],
-        string=path_) 
+        if isinstance(env_vars[pure], list):
+            path_ = re.sub(pattern=r'\$%s' % pure, repl=':'.join(env_vars[pure]),
+            string=path_) 
+        else:
+            path_ = re.sub(pattern=r'\$%s' % pure, repl=env_vars[pure],
+            string=path_) 
+         
         path_ = re.sub(pattern=r'//', repl='/', string=path_)        
 
 
@@ -36,4 +41,4 @@ def resolve_env_vars(env_vars):
 if __name__ == '__main__':
     env_vars = yaml.load(path('/home/cfobel/env_vars.yml').bytes())
     resolve_env_vars(env_vars)
-    print env_vars
+
