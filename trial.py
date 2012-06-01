@@ -8,14 +8,30 @@ import hashlib
 import getpass
 import re
 from resolve_vars import resolve_path, resolve_env_vars
+from paramiko import SSHClient, SSHConfig
+import sys
 
 
 class Connection(object):
-    def __init__(self, hostname='127.0.0.1', username=None, password=''):
+    def __init__(self, hostname='127.0.0.1', username=None, password=None, config='~/.ssh/config'):
+        
+        if not hostname:
+            raise ValueError('Missing hostname')
+
+        if not username:
+            config = SSHConfig()
+            ssh_config_path = path(config).expand()
+            if ssh_config_path.exists():
+                config.parse(ssh_config_path.open())
+                if config.lookup(hostname):
+                   host_config = config.lookup(hostname)
+                   username = host_config['user']
         if not username:
             username = getpass.getuser()
+        
         self.ssh = paramiko.SSHClient()
-        self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.ssh.load_system_host_keys()
+        #self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
         while True:
             try:
@@ -26,7 +42,8 @@ class Connection(object):
                 print 'Connection failed'
                 password = getpass.getpass(prompt='%s password:' %username)
                 if not password:
-                    exit(1)
+                    sys.exit(1)
+        
         self.sftp = self.ssh.open_sftp()
         self.username = username
 
@@ -47,21 +64,17 @@ class Connection(object):
 
 
 class CoalitionConnection(Connection):
-    def __init__(self, hostname='131.104.49.31', port=19211, username='coalition',
-                 password=''):
-
+    def __init__(self, hostname='131.104.49.31', port=19211, username='coalition', **kwargs ):
         self.control = CoalitionControl("http://%s:%d" %(hostname, port))
-        Connection.__init__(self, hostname=hostname, username=username, 
-                            password=password )
+        Connection.__init__(self, hostname=hostname, username=username, **kwargs )
  
     def add(self, **kwargs):
         return self.control.add(**kwargs)
 
 class SharcNetConnection(Connection):
 
-    def __init__(self, hostname='kraken.sharcnet.ca', username=None, password=''):
-        Connection.__init__(self, hostname=hostname, username=username,
-                            password=password )        
+    def __init__(self, hostname='kraken.sharcnet.ca', **kwargs):
+        Connection.__init__(self, hostname=hostname, **kwargs)        
  
 
 # TODO add a check status method for after running.
