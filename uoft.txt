@@ -1,0 +1,9 @@
+uoft/leon3mp_low_fanout_latch-1x4lut.net
+uoft/netcard_low_fanout_latch-1x4lut.net
+uoft/b18_new_mapped-1x4lut.net
+uoft/b18_1_new_mapped-1x4lut.net
+uoft/netcard_low_fanout_latch-4x4lut.net
+uoft/b17_1_new_mapped-1x4lut.net
+uoft/leon2_low_fanout_latch-1x4lut.net
+uoft/uoft_raytracer_low_fanout_latch-1x4lut.net
+uoft/b19_1_new_mapped-1x4lut.net

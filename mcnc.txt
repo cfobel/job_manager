@@ -1,0 +1,11 @@
+mcnc/apex2.net
+mcnc/ex5p.net
+mcnc/tseng.net
+mcnc/misex3.net
+mcnc/apex4.net
+mcnc/alu4.net
+mcnc/s38584.1.net
+mcnc/diffeq.net
+mcnc/s38417.net
+mcnc/seq.net
+mcnc/dsip.net
