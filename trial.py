@@ -181,7 +181,7 @@ class BaseTrial(object):
 # the user may modify ssh to use a differnt user
 # and then the sftp is under a different user's directory
 class CoalitionTrial(BaseTrial):
-    _default_connection = None
+    _default_connection = CoalitionConnection()
 
     def __init__(self, params, time, priority, 
                  exe_path=None, out_path=None, connection=None ):
@@ -206,7 +206,7 @@ class CoalitionTrial(BaseTrial):
 # The class members once set, are permanent the user would have to manually
 # modify SharcNetTrial.ssh and sftp to use a different server.
 class SharcNetTrial(BaseTrial):
-    _default_connection = None
+    _default_connection = SharcNetConnection()
     PATH = """/opt/sharcnet/archive_tools/1.1/bin\
 :/opt/sharcnet/compile/1.3/bin\
 :/opt/sharcnet/vmd/1.8.7/bin\
