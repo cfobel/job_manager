@@ -13,22 +13,25 @@ import sys
 
 
 class Connection(object):
-    def __init__(self, hostname='127.0.0.1', username=None, password=None, config='~/.ssh/config'):
+    def __init__(self, hostname='127.0.0.1', username=None, password=None, config_path='~/.ssh/config'):
         
         if not hostname:
             raise ValueError('Missing hostname')
 
         if not username:
             config = SSHConfig()
-            ssh_config_path = path(config).expand()
+            ssh_config_path = path(config_path).expand()
             if ssh_config_path.exists():
                 config.parse(ssh_config_path.open())
                 if config.lookup(hostname):
                    host_config = config.lookup(hostname)
                    username = host_config['user']
+                else: print 'unknown host'
+            else: print 'config file path wrong'
+        
         if not username:
             username = getpass.getuser()
-        
+        print username, hostname, ssh_config_path
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
         #self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
