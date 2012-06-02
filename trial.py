@@ -133,6 +133,15 @@ class BaseTrial(object):
         print 'output = ', self.out_path
         parent = self.out_path.parent
         print 'checking for ', self.out_path.namebase, ' in ',  parent
+        # if user specified 'my/output/dir/' instead of 'my/output/dir'
+        # this wil result in looking for nothing '' in a possibly nonexistent
+        # directory 'my/output/dir'
+        if not self.out_path.namebase:
+            print "don't put '/' at the end of the ouput directory."
+            self.out_path = parent
+            parent = self.out_path.parent 
+            print 'now checking for ', self.out_path, ' in ', parent
+
         if self.out_path.namebase not in self.connection.listdir(parent):
             print self.connection.listdir(parent)
             try:
@@ -259,12 +268,13 @@ class SharcNetTrial(BaseTrial):
     def submit(self):
         # set the PATH environment
         dir_ = self.out_path / self.hash_path
-        command = "PATH=%s\n sqsub --test -r %d -o %s %s %s %s" % (
+        command = "PATH=%s\n sqsub -r %d -o %s %s %s %s" % (
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
                    self.time, str(dir_/path('log.txt')), 
                    self.python_path,
                    str(self.wrap_path / path('wrapper.py')), str(dir_))
-
+        
+        print command
         stdin, stdout, stderr = self.connection.exec_command(command)
 
         output = [line for line in stdout]
