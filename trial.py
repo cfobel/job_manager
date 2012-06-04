@@ -91,14 +91,15 @@ class BaseTrial(object):
         elif self._connection:     
             return self._connection
         else:
-            raise ValueError()
+            self._default_connection = Connection()
+            return self._default_connection
 
     @connection.setter
     def connection(self, value):
         self._connection = value
 
-    def __init__(self, out_path, exe_path, params, time, 
-                 priority, connection=None, verbose=True, env='BaseTrial.yml'):
+    def __init__(self, out_path, exe_path, params, time=180, 
+                 priority=1, connection=None, verbose=True, env='BaseTrial.yml'):
         
         self._connection = None
         if connection:
@@ -196,6 +197,14 @@ class BaseTrial(object):
         errors = [y for y in stderr]
         return output, errors
 
+    def get_state(self):
+        files = self.connection.listdir(self.out_path / self.hash_path)
+        if '.finished' in files:
+            return 'finished'
+        elif '.error' in files:
+            return 'error'
+        else:
+            return None
 
     def get_id(self):
         return self.id_
@@ -208,12 +217,21 @@ class BaseTrial(object):
 class CoalitionTrial(BaseTrial):
     _default_connection = None #CoalitionConnection()
 
-    def __init__(self, params, time, priority, env='coalition.yml',
+    def __init__(self, params, time=180, priority=1, env='coalition.yml',
                  exe_path=None, out_path=None, connection=None ):
 
         BaseTrial.__init__(self, connection=connection,
                             out_path=out_path, exe_path=exe_path,
                             params=params, time=time, priority=priority, env=env)
+    @property
+    def connection(self):
+        if self._default_connection:
+            return self._default_connection
+        elif self._connection:     
+            return self._connection
+        else:
+            self._default_connection = CoalitionConnection()
+            return self._default_connection
 
 
     def submit(self):
@@ -258,12 +276,23 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
-    def __init__(self, params, time, priority, 
+    def __init__(self, params, time=180, priority=1, 
                 out_path=None, exe_path=None, connection=None, env='sharcnet.yml'):
        
         BaseTrial.__init__(self, connection=connection, 
                                 out_path=out_path, exe_path=exe_path,
                                 params=params, time=time, priority=priority, env=env)
+
+    @property
+    def connection(self):
+        if self._default_connection:
+            return self._default_connection
+        elif self._connection:     
+            return self._connection
+        else:
+            self._default_connection = SharcNetConnection()
+            return self._default_connection
+
 
     def submit(self):
         # set the PATH environment
