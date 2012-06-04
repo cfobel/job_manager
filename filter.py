@@ -46,7 +46,6 @@ def _parse_args():
 def update(param_file, exe_path, out_path):
     entry = shelve.open(param_file)
     for k, v in entry.iteritems():
-        print k, v
         state = dict(v)
         if state['state'] != 'submitted':
             continue

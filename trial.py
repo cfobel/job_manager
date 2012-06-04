@@ -113,7 +113,7 @@ class BaseTrial(object):
         self.time = time
         if isinstance(params, dict):
             params = sorted(list(params.iteritems()))
-        self.params = params
+        self.params = sorted(params)
         sha1 = hashlib.sha1(str((self.exe_path, self.params)))
         self.hash_path = path(sha1.hexdigest())
         env_file = path('./environments') / path(env)
@@ -198,7 +198,11 @@ class BaseTrial(object):
         return output, errors
 
     def get_state(self):
-        files = self.connection.listdir(self.out_path / self.hash_path)
+        try:
+            files = self.connection.listdir(self.out_path / self.hash_path)
+        except:
+            print  self.out_path/self.hash_path, ' not found'
+            return None
         if '.finished' in files:
             return 'finished'
         elif '.error' in files:
