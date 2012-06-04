@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from trial import CoalitionTrial, SharcNetTrial
+from trial import CoalitionTrial, SharcNetTrial, BaseTrial
 import shelve
 from path import path
 import yaml
@@ -45,31 +45,35 @@ def _parse_args():
     
     return args
 
-def rehash(param_file, exe_path, out_path):
-    entry = shelve.open(param_file)
-    for k, v in entry.iteritems():
-        if v['state'] != 'submitted':
-            continue
-        if state['queue'] == 'sharcnet':
-            T = SharcNetTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
-        elif state['queue'] == 'coalition':
-            T = CoalitionTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
-        else:
-            print 'Unknown Queue ', state['queue'] 
-            continue
-        for folder in T.connection.listdir(T.out_path):
-            config = path(folder) / 'config.yml'
-            try:
-                cfile = T.connection.open(config)
-            except:
-                print "couldn't open:", cfile
-                continue
-            data = yaml.load(config)
-            params = data['params']
-            print params
-    entry.close()
+def rehash(exe_path, out_path, server):
+    if server == 'sharcnet':
+        T = SharcNetTrial(params=[], exe_path=exe_path, out_path=out_path)
+    elif server == 'coaltion':
+        T = CoalitionTrial(params=[], exe_path=exe_path, out_path=out_path)
+    else:
+        print 'unknown server ', server
+        return
 
-
+    for folder in T.connection.listdir(T.out_path):
+        config = path(folder) / path('config.yml')
+        files = T.connection.listdir(T.out_path / path(folder))
+        if '.finished' not in files:
+            print 'Script not done'
+            continue
+        try:
+            cfile = T.connection.open(T.out_path / config)
+        except:
+            print "couldn't open:", T.out_path / config
+            continue
+        data = yaml.load(cfile)
+        sort_params = sorted(data[1])
+        new_path = T.out_path / T._hash(data[0], sort_params)
+        cfile.close()
+        # rewrite the sorted parameters into the config file
+        cfile = T.connection.open(T.out_path / config, 'w')
+        cfile.write(yaml.dump(data))
+        cfile.close()
+        T.connection.rename(T.out_path / folder, new_path)
 
 
 def update(param_file, exe_path, out_path):
@@ -156,10 +160,15 @@ if __name__ == "__main__":
         elif args.sharcnet: 
             run_sharcnet(args.param_file, args.script, args.trial_name, args.run_time, args.priority)
         else:
-            print 'No server Specified; -coalition or -sharcnet'
+            print 'No Server Specified; use -coalition or -sharcnet'
     elif args.update:
         update(args.param_file, args.script, args.trial_name)
     elif args.rehash:
-        rehash(args.param_file, args.script, args.trial_name)    
+        if args.coalition:
+            rehash(args.param_file, args.script, args.trial_name, 'coalition')    
+        elif args.sharcnet:
+            rehash(args.param_file, args.script, args.trial_name, 'sharcnet')
+        else:
+            print 'No Sever Specified; use -coalition ot -sharcnet'
     else:
-        print 'No action; use -update or -submit.'
+        print 'No action; use -update, -submit, or -rehash.'

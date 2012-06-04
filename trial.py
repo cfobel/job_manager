@@ -53,10 +53,13 @@ class Connection(object):
     def mkdir(self, dir_):
         return self.sftp.mkdir(str(dir_))
 
+    def rmdir(self, dir_):
+        return self.sftp.rmdir(str(dir_))
+
     def listdir(self, dir_):
         return self.sftp.listdir(str(dir_))
 
-    def open(self, file_, mode='c'):
+    def open(self, file_, mode='r'):
         return self.sftp.open(str(file_), mode)
 
     def exec_command(self, command):
@@ -64,6 +67,9 @@ class Connection(object):
 
     def get_username(self):
         return self.username
+
+    def rename(self, old, new):
+        return self.sftp.rename( str(old), str(new))
 
 
 class CoalitionConnection(Connection):
@@ -97,6 +103,11 @@ class BaseTrial(object):
     @connection.setter
     def connection(self, value):
         self._connection = value
+
+    def _hash(self, exe_path, params):
+        p = sorted( params )
+        sha1 = hashlib.sha1(str((exe_path, p)))
+        return path(sha1.hexdigest())
 
     def __init__(self, out_path, exe_path, params, time=180, 
                  priority=1, connection=None, verbose=True, env='BaseTrial.yml'):
@@ -162,6 +173,11 @@ class BaseTrial(object):
         elif self.verbose:
             print self.out_path / self.hash_path,  ' exists'
 
+    def remove_output_dir(self):
+        try:
+            self.connection.rmdir(self.out_path / self.hash_path)
+        except:
+            print "Couldn't remove output directory"
 
     def write_config(self):
         config = (self.exe_path, self.params)
@@ -180,6 +196,13 @@ class BaseTrial(object):
         elif self.verbose:
             print 'config.yml already exists'
 
+    def remove_config(self):
+        config_path = path(self.out_path / self.hash_path)
+        if 'config.yml' in self.connection.listdir(config_path):
+            try:
+                self.connection.execute_command('rm %s', %(config_path / 'config.yml'))
+            except:
+                print 'filed to remove config file'
 
     def submit(self):
         """
@@ -196,6 +219,10 @@ class BaseTrial(object):
         output = [x for x in stdout]
         errors = [y for y in stderr]
         return output, errors
+
+    def unsubmit(self):
+        # kill the process here.
+        pass
 
     def get_state(self):
         try:
@@ -246,6 +273,9 @@ class CoalitionTrial(BaseTrial):
                          command='%s %s' %( self.wrap_path / path('wrapper.py'), dir_) )
         # use id to get status and return (output, errors) for submission 
         return list(), list()
+
+    def unsubmit(self):
+        print 'command unsubmit not supported yet.'
 
 
 
@@ -321,6 +351,9 @@ class SharcNetTrial(BaseTrial):
                     print 'self.id = ', self.id_
         
         return output, errors
+
+    def unsubmit(self):
+        self.connection.execute_command('sqkill %d', %self.id_)
 
 
 """
