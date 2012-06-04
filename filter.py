@@ -23,16 +23,18 @@ def _parse_args():
     parser.add_argument('-submit', action='store_true')
     parser.add_argument('-update', action='store_true')
     parser.add_argument('-rehash', action='store_true')
+    parser.add_argument('-show', action='store_true')
 
+    parser.add_argument('-state', nargs=2, type=str)
     parser.add_argument('-run_time', nargs=1,
                          dest='run_time', type=int)
     parser.add_argument('-priority', nargs=1,
                         dest='priority', type=int)
     parser.add_argument('-param_file', required=True, nargs=1, 
                         dest='param_file', type=path)
-    parser.add_argument('-script', required=True, nargs=1,
+    parser.add_argument('-script', nargs=1,
                         dest='script', type=path)
-    parser.add_argument('-trial_name', required=True, nargs=1,
+    parser.add_argument('-trial_name', nargs=1,
                          dest='trial_name', type=str )
    
     args = parser.parse_args()
@@ -40,8 +42,10 @@ def _parse_args():
         args.run_time = args.run_time[0]
         args.priority = args.priority[0]
     args.param_file = args.param_file[0]
-    args.script = args.script[0]
-    args.trial_name = args.trial_name[0]
+    if args.script:
+        args.script = args.script[0]
+    if args.trial_name:
+        args.trial_name = args.trial_name[0]
     
     return args
 
@@ -69,31 +73,35 @@ def rehash(exe_path, out_path, server):
         sort_params = sorted(data[1])
         new_path = T.out_path / T._hash(data[0], sort_params)
         cfile.close()
-        # rewrite the sorted parameters into the config file
-        cfile = T.connection.open(T.out_path / config, 'w')
-        cfile.write(yaml.dump(data))
-        cfile.close()
-        T.connection.rename(T.out_path / folder, new_path)
-
+        if new_path != T.out_path / folder:
+            # rewrite the sorted parameters into the config file
+            cfile = T.connection.open(T.out_path / config, 'w')
+            cfile.write(yaml.dump(data))
+            cfile.close()
+            T.connection.rename(T.out_path / folder, new_path)
+        else:
+            print folder, ' already in right spot'
 
 def update(param_file, exe_path, out_path):
     entry = shelve.open(param_file)
     for k, v in entry.iteritems():
-        state = dict(v)
-        if state['state'] != 'submitted':
+        if v['state'] != 'submitted':
+            print 'state ', v['state']
             continue
-        if state['queue'] == 'sharcnet':
+        if v['queue'] == 'sharcnet':
             T = SharcNetTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
-        elif state['queue'] == 'coalition':
+        elif v['queue'] == 'coalition':
             T = CoalitionTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
         else:
-            print 'Unknown Queue ', state['queue'] 
+            print 'Unknown Queue ', v['queue'] 
             continue
         new_state = T.get_state()
         if not new_state:
+            print 'no update'
             continue
         else:
-            state['state'] = new_state
+            v['state'] = new_state
+            entry[k] = v
     entry.close()
 
 
@@ -152,9 +160,19 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
 
     trial.close()
 
+def show(param_file, state_var, value):
+    entry = shelve.open(param_file)
+    for k, v in entry.iteritems():
+        if str(v[str(state_var)]) == str(value):
+            print k, v
+    entry.close()
+
 if __name__ == "__main__":
     args = _parse_args()
-    if args.submit:
+    
+    if args.show:
+        show(args.param_file, args.state[0], args.state[1])
+    elif args.submit:
         if args.coalition:
             run_coalition(args.param_file, args.script, args.trial_name, args.run_time, args.priority)
         elif args.sharcnet: 
@@ -165,9 +183,9 @@ if __name__ == "__main__":
         update(args.param_file, args.script, args.trial_name)
     elif args.rehash:
         if args.coalition:
-            rehash(args.param_file, args.script, args.trial_name, 'coalition')    
+            rehash(args.script, args.trial_name, 'coalition')    
         elif args.sharcnet:
-            rehash(args.param_file, args.script, args.trial_name, 'sharcnet')
+            rehash(args.script, args.trial_name, 'sharcnet')
         else:
             print 'No Sever Specified; use -coalition ot -sharcnet'
     else:

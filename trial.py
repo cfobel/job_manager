@@ -200,7 +200,7 @@ class BaseTrial(object):
         config_path = path(self.out_path / self.hash_path)
         if 'config.yml' in self.connection.listdir(config_path):
             try:
-                self.connection.execute_command('rm %s', %(config_path / 'config.yml'))
+                self.connection.execute_command('rm %s' %(config_path / 'config.yml'))
             except:
                 print 'filed to remove config file'
 
@@ -228,13 +228,14 @@ class BaseTrial(object):
         try:
             files = self.connection.listdir(self.out_path / self.hash_path)
         except:
-            print  self.out_path/self.hash_path, ' not found'
+            print  self.out_path / self.hash_path, ' not found'
             return None
         if '.finished' in files:
             return 'finished'
         elif '.error' in files:
             return 'error'
         else:
+            print 'in progress? ', files
             return None
 
     def get_id(self):
@@ -353,7 +354,7 @@ class SharcNetTrial(BaseTrial):
         return output, errors
 
     def unsubmit(self):
-        self.connection.execute_command('sqkill %d', %self.id_)
+        self.connection.execute_command('sqkill %d' %self.id_)
 
 
 """
