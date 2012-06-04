@@ -3,6 +3,8 @@
 from trial import CoalitionTrial, SharcNetTrial
 import shelve
 from path import path
+import yaml
+
 
 def _parse_args():
     """Parses arguments, returns ``(options, args)``."""
@@ -20,7 +22,8 @@ def _parse_args():
     parser.add_argument('-sharcnet', action='store_true')
     parser.add_argument('-submit', action='store_true')
     parser.add_argument('-update', action='store_true')
-    
+    parser.add_argument('-rehash', action='store_true')
+
     parser.add_argument('-run_time', nargs=1,
                          dest='run_time', type=int)
     parser.add_argument('-priority', nargs=1,
@@ -41,6 +44,32 @@ def _parse_args():
     args.trial_name = args.trial_name[0]
     
     return args
+
+def rehash(param_file, exe_path, out_path):
+    entry = shelve.open(param_file)
+    for k, v in entry.iteritems():
+        if v['state'] != 'submitted':
+            continue
+        if state['queue'] == 'sharcnet':
+            T = SharcNetTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
+        elif state['queue'] == 'coalition':
+            T = CoalitionTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
+        else:
+            print 'Unknown Queue ', state['queue'] 
+            continue
+        for folder in T.connection.listdir(T.out_path):
+            config = path(folder) / 'config.yml'
+            try:
+                cfile = T.connection.open(config)
+            except:
+                print "couldn't open:", cfile
+                continue
+            data = yaml.load(config)
+            params = data['params']
+            print params
+    entry.close()
+
+
 
 
 def update(param_file, exe_path, out_path):
@@ -129,6 +158,8 @@ if __name__ == "__main__":
         else:
             print 'No server Specified; -coalition or -sharcnet'
     elif args.update:
-            update(args.param_file, args.script, args.trial_name)
+        update(args.param_file, args.script, args.trial_name)
+    elif args.rehash:
+        rehash(args.param_file, args.script, args.trial_name)    
     else:
         print 'No action; use -update or -submit.'
