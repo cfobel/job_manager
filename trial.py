@@ -90,6 +90,9 @@ class SharcNetConnection(Connection):
 class BaseTrial(object):
     _default_connection = None
 
+    def _get_default_connection(self):
+        return Connection()
+
     @property
     def connection(self):
         if self._default_connection:
@@ -97,7 +100,7 @@ class BaseTrial(object):
         elif self._connection:     
             return self._connection
         else:
-            self._default_connection = Connection()
+            self._default_connection = self._get_default_connection()
             return self._default_connection
 
     @connection.setter
@@ -111,7 +114,6 @@ class BaseTrial(object):
 
     def __init__(self, out_path, exe_path, params, time=180, 
                  priority=1, connection=None, verbose=True, env='BaseTrial.yml'):
-        
         self._connection = None
         if connection:
             self.connection = connection
@@ -200,9 +202,9 @@ class BaseTrial(object):
         config_path = path(self.out_path / self.hash_path)
         if 'config.yml' in self.connection.listdir(config_path):
             try:
-                self.connection.execute_command('rm %s' %(config_path / 'config.yml'))
+                self.connection.exec_command('rm %s' %(config_path / 'config.yml'))
             except:
-                print 'filed to remove config file'
+                print 'failed to remove config file'
 
     def submit(self):
         """
@@ -255,16 +257,9 @@ class CoalitionTrial(BaseTrial):
         BaseTrial.__init__(self, connection=connection,
                             out_path=out_path, exe_path=exe_path,
                             params=params, time=time, priority=priority, env=env)
-    @property
-    def connection(self):
-        if self._default_connection:
-            return self._default_connection
-        elif self._connection:     
-            return self._connection
-        else:
-            self._default_connection = CoalitionConnection()
-            return self._default_connection
 
+    def _get_default_connection(self):
+        return CoalitionConnection()
 
     def submit(self):
         dir_ = self.out_path / self.hash_path
@@ -311,30 +306,29 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
-    def __init__(self, params, time=180, priority=1, 
+    def __init__(self, params, time=180, priority=1, test=False, 
                 out_path=None, exe_path=None, connection=None, env='sharcnet.yml'):
-       
+        self.test = test
         BaseTrial.__init__(self, connection=connection, 
                                 out_path=out_path, exe_path=exe_path,
                                 params=params, time=time, priority=priority, env=env)
 
-    @property
-    def connection(self):
-        if self._default_connection:
-            return self._default_connection
-        elif self._connection:     
-            return self._connection
-        else:
-            self._default_connection = SharcNetConnection()
-            return self._default_connection
-
+    def _get_default_connection(self):
+        return SharcNetConnection()
 
     def submit(self):
         # set the PATH environment
         dir_ = self.out_path / self.hash_path
-        command = "PATH=%s\n sqsub -r %d -o %s %s %s %s" % (
+        if self.test:
+            test = '--test '
+        else:
+            test = ''
+        if test:
+            print 'setting time to 60 mins for test'
+            self.time = 60
+        command = "PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
-                   self.time, str(dir_/path('log.txt')), 
+                   test, self.time, str(dir_/path('log.txt')), 
                    self.python_path,
                    str(self.wrap_path / path('wrapper.py')), str(dir_))
         
