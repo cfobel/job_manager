@@ -18,9 +18,9 @@ class Connection(object):
         if not hostname:
             raise ValueError('Missing hostname')
 
+        ssh_config_path = path(config_path).expand()
         if not username:
             config = SSHConfig()
-            ssh_config_path = path(config_path).expand()
             if ssh_config_path.exists():
                 config.parse(ssh_config_path.open())
                 if config.lookup(hostname):
