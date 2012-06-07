@@ -73,11 +73,11 @@ class Connection(object):
 
 
 class CoalitionConnection(Connection):
-    def __init__(self, hostname='131.104.49.31', port=19211, username='coalition', **kwargs ):
-        self.control = CoalitionControl("http://%s:%d" %(hostname, port))
+    def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, username='coalition', **kwargs ):
+        self.control = CoalitionControl("http://localhost:%d" %port)
         Connection.__init__(self, hostname=hostname, username=username, **kwargs )
  
-    def add(self, **kwargs):
+    def run(self, **kwargs):
         return self.control.add(**kwargs)
 
 class SharcNetConnection(Connection):
@@ -113,11 +113,11 @@ class BaseTrial(object):
         return path(sha1.hexdigest())
 
     def __init__(self, out_path, exe_path, params, time=180, 
-                 priority=1, connection=None, verbose=True, env='BaseTrial.yml'):
+                 priority=1, connection=None, verbose=True, test=False, env='BaseTrial.yml'):
         self._connection = None
         if connection:
             self.connection = connection
-
+        self.test = test
         self.verbose = verbose
         self.out_path = path(out_path)
         self.exe_path = path(exe_path)
@@ -183,13 +183,13 @@ class BaseTrial(object):
 
     def write_config(self):
         config = (self.exe_path, self.params)
+        print config
         config_path = path(self.out_path / self.hash_path)
         if 'config.yml' not in self.connection.listdir(config_path):
             try:
                 conf_file = self.connection.open(
                                             config_path / path('config.yml'),
                                              mode='w')
-
                 conf_file.write(yaml.dump(config))
                 conf_file.close()
                 if self.verbose: print 'created config.yml'
@@ -263,8 +263,12 @@ class CoalitionTrial(BaseTrial):
 
     def submit(self):
         dir_ = self.out_path / self.hash_path
-        self.id_ = self.connection.add(
-                         affinity=str(self.out_path.namebase), 
+        if self.test:
+            affin = 'test'
+        else:
+            affin = str(self.out_path.namebase) 
+        self.id_ = self.connection.run(
+                         affinity=affin,
                          dir=self.exe_path.parent,
                          command='%s %s' %( self.wrap_path / path('wrapper.py'), dir_) )
         # use id to get status and return (output, errors) for submission 
@@ -306,9 +310,8 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
-    def __init__(self, params, time=180, priority=1, test=False, 
+    def __init__(self, params, time=180, priority=1,
                 out_path=None, exe_path=None, connection=None, env='sharcnet.yml'):
-        self.test = test
         BaseTrial.__init__(self, connection=connection, 
                                 out_path=out_path, exe_path=exe_path,
                                 params=params, time=time, priority=priority, env=env)
