@@ -13,7 +13,7 @@ import sys
 
 
 class Connection(object):
-    def __init__(self, hostname='127.0.0.1', username=None, password=None, config_path='~/.ssh/config'):
+    def __init__(self, hostname='127.0.0.1', username=None, password=None, config_path='~/.ssh/config', verbose=False):
         
         if not hostname:
             raise ValueError('Missing hostname')
@@ -28,7 +28,7 @@ class Connection(object):
                    username = host_config['user']
                 else: print 'unknown host'
             else: print 'config file path wrong'
-        
+        self.verbose = verbose        
         if not username:
             username = getpass.getuser()
         print username, hostname, ssh_config_path
@@ -51,26 +51,37 @@ class Connection(object):
         self.username = username
 
     def mkdir(self, dir_):
+        if self.verbose:
+            print 'mkdir(', dir_, ')'
         return self.sftp.mkdir(str(dir_))
 
     def rmdir(self, dir_):
+        if self.verbose:
+            print 'rmdir(', dir_, ')'
         return self.sftp.rmdir(str(dir_))
 
     def listdir(self, dir_):
+        if self.verbose:
+            print 'listdir( ', dir_, ')'
         return self.sftp.listdir(str(dir_))
 
     def open(self, file_, mode='r'):
+        if self.verbose:
+            print 'open( ', file_, ', ', mode, ')'
         return self.sftp.open(str(file_), mode)
 
     def exec_command(self, command):
+        if self.verbose:
+            print 'exec_command( ', command, ')'
         return self.ssh.exec_command(command)
 
     def get_username(self):
         return self.username
 
     def rename(self, old, new):
+        if self.verbose:
+            print 'rename( ', old, ', ', new, ')'
         return self.sftp.rename( str(old), str(new))
-
 
 class CoalitionConnection(Connection):
     def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, username='coalition', **kwargs ):
@@ -113,7 +124,7 @@ class BaseTrial(object):
         return path(sha1.hexdigest())
 
     def __init__(self, out_path, exe_path, params, time=180, 
-                 priority=1, connection=None, verbose=True, test=False, env='BaseTrial.yml'):
+                 priority=1, connection=None, verbose=False, test=False, env='BaseTrial.yml'):
         self._connection = None
         if connection:
             self.connection = connection
@@ -146,7 +157,8 @@ class BaseTrial(object):
         # Check and see if the result directory has been made.
         print 'output = ', self.out_path
         parent = self.out_path.parent
-        print 'checking for ', self.out_path.namebase, ' in ',  parent
+        if self.verbose:
+            print 'checking for ', self.out_path.namebase, ' in ',  parent
         # if user specified 'my/output/dir/' instead of 'my/output/dir'
         # this wil result in looking for nothing '' in a possibly nonexistent
         # directory 'my/output/dir'
@@ -249,17 +261,17 @@ class BaseTrial(object):
 # the user may modify ssh to use a differnt user
 # and then the sftp is under a different user's directory
 class CoalitionTrial(BaseTrial):
-    _default_connection = None #CoalitionConnection()
+    _default_connection = None 
 
     def __init__(self, params, time=180, priority=1, env='coalition.yml',
-                 exe_path=None, out_path=None, connection=None ):
+                 exe_path=None, out_path=None, connection=None, verbose=False, test=False ):
 
         BaseTrial.__init__(self, connection=connection,
                             out_path=out_path, exe_path=exe_path,
                             params=params, time=time, priority=priority, env=env)
 
     def _get_default_connection(self):
-        return CoalitionConnection()
+        return CoalitionConnection(verbose=True)
 
     def submit(self):
         dir_ = self.out_path / self.hash_path
@@ -311,13 +323,13 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
     def __init__(self, params, time=180, priority=1,
-                out_path=None, exe_path=None, connection=None, env='sharcnet.yml'):
+                out_path=None, exe_path=None, connection=None, env='sharcnet.yml', verbose=False, test=False):
         BaseTrial.__init__(self, connection=connection, 
                                 out_path=out_path, exe_path=exe_path,
                                 params=params, time=time, priority=priority, env=env)
 
     def _get_default_connection(self):
-        return SharcNetConnection()
+        return SharcNetConnection(verbose=True)
 
     def submit(self):
         # set the PATH environment

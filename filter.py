@@ -24,8 +24,8 @@ def _parse_args():
     parser.add_argument('-update', action='store_true')
     parser.add_argument('-rehash', action='store_true')
     parser.add_argument('-show', action='store_true')
-
-    parser.add_argument('-state', nargs=2, type=str)
+    parser.add_argument('-test', action='store_true')
+    parser.add_argument('-state', nargs='+', type=str)
     parser.add_argument('-run_time', nargs=1,
                          dest='run_time', type=int)
     parser.add_argument('-priority', nargs=1,
@@ -104,15 +104,22 @@ def update(param_file, exe_path, out_path):
             entry[k] = v
     entry.close()
 
+# Use this as a one time run.
+def test(x):
+    if not hasattr(test, '_ran'):
+        test._ran = True
+        return True
+    else:
+        return False
 
-def add_params(fname, params):
+
+def add_params(f, params):
     p = []
     for k,v in params.iteritems():
         p.append((k,v))
     p = sorted( p )
-    d = shelve.open(fname)
-    d[str(tuple(p))]= {'state':'waiting', 'queue':None, 'id':None}
-    d.close()
+    f[str(tuple(p))]= {'state':'waiting', 'queue':None, 'id':None}
+
 
 def run_coalition(trial_file, prog_path, result_path, run_time, priority):
      run_parameters(trial_file, lambda x: False, lambda x: True, prog_path,
@@ -125,7 +132,7 @@ def run_sharcnet(trial_file, prog_path, result_path, run_time, priority):
 
 
 def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
-                    result_path, run_time, priority):
+                    result_path, run_time, priority, verbose=False, test=False):
 
     trial =  shelve.open(trial_file)
  
@@ -135,35 +142,50 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
             assert(trial[p]['queue'] == None)
             assert(trial[p]['id'] == None)
             if sharc_filter(p):
-                trial[p]['state'] = 'submitted'
+                trial[p]['state'] = 'submitte'
                 trial[p]['queue'] = 'sharcnet'                
                 T = SharcNetTrial(out_path=result_path, 
                                     exe_path=prog_path, 
                                     params=eval(p), 
                                     time=run_time, 
-                                    priority=priority)
+                                    priority=priority,
+                                    verbose=verbose,
+                                    test=test)
+
             elif coalition_filter(p):
                 trial[p]['state'] = 'submitted'
                 trial[p]['queue'] = 'coalition'
-                T = CoalitionTrial(out_path=results_path, 
+                T = CoalitionTrial(out_path=result_path, 
                                     exe_path=prog_path, 
                                     params=eval(p), 
                                     time=run_time, 
-                                    priority=priority)
+                                    priority=priority,
+                                    verbose=verbose,
+                                    test=test)
             else:
                 continue
 
-            T.create_output_dir()
-            T.write_config_file()
+            T.make_output_dir()
+            T.write_config()
             T.submit()
             trial[p]['id'] = T.get_id()
 
     trial.close()
 
+def test_coalition(trial_file):
+    run_parameters(trial_file, lambda x: False, test, '$PYVPR_EXPERIMENTS/test.py', '$PYVPR_RESULTS', 3, 1, verbose=True, test=True)
+
+
+def test_sharcnet(trial_file):
+    run_parameters(trial_file, test, lambda x: False, '$PYVPR_EXPERIMENTS/test.py', '$PYVPR_RESULTS', 3, 1, verbose=True, test=True)
+
+
 def show(param_file, state_var, value):
     entry = shelve.open(param_file)
     for k, v in entry.iteritems():
-        if str(v[str(state_var)]) == str(value):
+        if value == None:
+            print v[str(state_var)]
+        elif str(v[str(state_var)]) == str(value):
             print k, v
     entry.close()
 
@@ -171,7 +193,10 @@ if __name__ == "__main__":
     args = _parse_args()
     
     if args.show:
-        show(args.param_file, args.state[0], args.state[1])
+        value = None
+        if len(args.state) > 1:
+            value = args.state[1]
+        show(args.param_file, args.state[0], value)
     elif args.submit:
         if args.coalition:
             run_coalition(args.param_file, args.script, args.trial_name, args.run_time, args.priority)
@@ -188,5 +213,12 @@ if __name__ == "__main__":
             rehash(args.script, args.trial_name, 'sharcnet')
         else:
             print 'No Sever Specified; use -coalition ot -sharcnet'
+    elif args.test:
+        if args.coalition:
+            test_coalition(args.param_file)
+        elif args.sharcnet:
+            test_sharcnet(args.param_file)
+        else:
+            print 'No Server Specififed; Use -coalition or -sharcnet'
     else:
         print 'No action; use -update, -submit, or -rehash.'
