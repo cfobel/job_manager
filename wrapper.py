@@ -25,7 +25,7 @@ help_string = \
 """
 
 
-def run(result_path, parent, verbose=True):
+def run(result_path, parent, verbose=False):
     path_ = path(result_path)
 
     if not path_.exists:
@@ -59,7 +59,8 @@ def run(result_path, parent, verbose=True):
     
     # TODO allow for list arguments as well not in tuple form?.
     params = [str(pkg[0])] # add executable name ./program.py
-    print pkg 
+    if verbose:
+        print 'Wrapper Executable and paramters' , pkg 
     for k, v in dict(pkg[1]):
         if k and v is not None:
             params.append('-%s' %k)
@@ -78,10 +79,12 @@ def run(result_path, parent, verbose=True):
     try:
         #subprocess.call(params, shell=True)
         command = ' '.join(params)
-        print command
+        if verbose:
+            print 'In Wrapper Command = ', command
         p = subprocess.Popen(command, stdout=subprocess.PIPE, 
                                 stderr=subprocess.PIPE, shell=True)
-        print p.communicate()
+        if verbose:
+            print p.communicate()
         ret = p.close()[1]
     except:
         ret = -1

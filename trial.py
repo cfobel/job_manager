@@ -61,7 +61,7 @@ class Connection(object):
         if not username:
             username = getpass.getuser()
         if self.verbose:
-            print username, hostname, ssh_config_path
+            print 'Connection info: ', username, hostname, ssh_config_path
         
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
@@ -183,11 +183,12 @@ class BaseTrial(object):
             self.connection = connection
         self.test = test
         self.verbose = verbose
-        self.out_path = path(out_path)
-        self.exe_path = path(exe_path)
+        self.out_path = out_path
+        self.exe_path = exe_path
         self.id_ = None
         self.priority = priority
         self.time = time
+
         if isinstance(params, dict):
             params = sorted(list(params.iteritems()))
         self.params = sorted(params)
@@ -195,23 +196,26 @@ class BaseTrial(object):
         self.hash_path = path(sha1.hexdigest())
         env_file = path('./environments') / path(env)
         self.wrap_path = path('./')
+       
         if env_file.isfile():
             env = yaml.load(open(env_file))
             self.env = env
             resolve_env_vars(env)
+            if self.verbose:
+                print 'outpath before sub ', self.out_path
             self.out_path = resolve(env, self.out_path)
             self.wrap_path = resolve(env, Trial.MANAGER)
             self.python_path = resolve(env, Trial.WORK) / 'local/bin/python'
         elif verbose:
             print 'No Enviroment path found'
-
-        print self.exe_path, self.out_path
+        if self.verbose:
+            print  'exe path, out path, ', self.exe_path, self.out_path
 
 
     def make_output_dir(self):
         # Check and see if the result directory has been made.
         if self.verbose:
-            print 'output = ', self.out_path
+            print 'full output path = ', self.out_path
         parent = self.out_path.parent
         if self.verbose:
             print 'checking for ', self.out_path.namebase, ' in ',  parent
@@ -225,12 +229,16 @@ class BaseTrial(object):
             print 'now checking for ', self.out_path, ' in ', parent
 
         if self.out_path.namebase not in self.connection.listdir(parent):
-            print self.connection.listdir(parent)
+            if self.verbose:
+                print '%s not int %s!!!' %(self.out_path.namebase, parent)
+                print 'parent to result dir = ', self.connection.listdir(parent)
             try:
                 self.connection.mkdir(self.out_path)
-                if self.verbose: print 'created result directory'
+                if self.verbose: 
+                    print 'created result directory'
             except:
                 print 'failed to make ', self.out_path
+                exit(1)
         elif self.verbose: 
             print self.out_path, ' exists'
         
@@ -253,7 +261,8 @@ class BaseTrial(object):
 
     def write_config(self):
         config = (self.exe_path, self.params)
-        print config
+        if self.verbose:
+            print 'Config = ', config
         config_path = path(self.out_path / self.hash_path)
         if 'config.yml' not in self.connection.listdir(config_path):
             try:
@@ -262,9 +271,11 @@ class BaseTrial(object):
                                              mode='w')
                 conf_file.write(yaml.dump(config))
                 conf_file.close()
-                if self.verbose: print 'created config.yml'
+                if self.verbose: 
+                    print 'created config.yml'
             except:
                 print 'failed to write config.yml'
+                exit(1)
         elif self.verbose:
             print 'config.yml already exists'
 
@@ -397,8 +408,8 @@ class SharcNetTrial(BaseTrial):
             print 'setting time to 60 mins for test'
             self.time = 60
         work_path = resolve(self.env, Trial.WORK)
-      
-        print 'work path - ', work_path 
+        if self.verbose: 
+            print 'work path = ', work_path 
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
