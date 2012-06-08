@@ -87,7 +87,7 @@ def rehash(exe_path, out_path, server):
 
 
 def update(param_file, exe_path, out_path):
-    entry = shelve.open(param_file)
+    entry = shelve.open(param_file, writeback=True)
     for k, v in entry.iteritems():
         if v[Trial.STATE] != Trial.SUBMITTED:
             print 'state ', v[Trial.STATE]
@@ -143,7 +143,7 @@ def run_sharcnet(trial_file, prog_path, result_path, run_time, priorityi, verbos
 def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
                     result_path, run_time, priority, verbose=False, test=False):
 
-    trial =  shelve.open(trial_file)
+    trial =  shelve.open(trial_file, writeback=True)
  
     parameters = trial.keys()
     for p in parameters:
