@@ -7,12 +7,16 @@ import yaml
 
 
 def resolve(env_vars, path_):
+    resolve_env_vars(env_vars)
     cre_env = re.compile(r'\$\{(.*?)\}')
+    key_env = re.compile(r'\$\{(?P<key>.*)\}', re.X)
     match = cre_env.search(path_)
-
     while match:
         m = match.group()
-        path_ = re.sub(string=path_, pattern=m, repl=env_vars[m])
+        k = key_env.match(m).groupdict()['key']
+        if k not in env_vars:
+            raise ValueError('Missing Value for symbol %s' %m)
+        path_ = str.replace(path_, m, env_vars[k])
         match = cre_env.search(path_)
     return path_
 
