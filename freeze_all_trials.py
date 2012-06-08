@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import division
-from trial import SharcNetTrial, SharcNetConnection
+from trial import Trial
 import sys
 from path import path
 import yaml
@@ -25,15 +25,15 @@ if __name__ == "__main__":
     name += '.shelve'
 
     net_info = yaml.load(path('./'\
-            'anneal-fast-mean_outer_iterations_and_runtimes.yml').bytes())
+            'anneal-fast-mean_outer_iterations.yml').bytes())
 
     trial = shelve.open(name, 'c')
 
     for net in nets:
         for seed in range(10):
             run_count = net_info[net.namebase]['outer iter']
-            np = '$BENCHMARK_PATH/' + net
-            params=[('netlist_file', np), ('arch_file', '$BENCHMARK_PATH/k4-n1.xml'), 
+            np = '${BENCHMARK_PATH}' + net
+            params=[('netlist_file', np), ('arch_file', '${BENCHMARK_PATH}k4-n1.xml'), 
                     ('seed', seed), ('run_count', run_count), ('inner_num', 1)]
             add_params(trial, dict(params))
 
