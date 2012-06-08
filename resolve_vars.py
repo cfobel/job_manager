@@ -16,9 +16,15 @@ def resolve(env_vars, path_):
         k = key_env.match(m).groupdict()['key']
         if k not in env_vars:
             raise ValueError('Missing Value for symbol %s' %m)
-        path_ = str.replace(path_, m, env_vars[k])
+        print path_, m, env_vars[k] 
+        if isinstance(env_vars[k], list):
+            repl = ':'.join(env_vars[k])
+        else:
+            repl = env_vars[k]
+        path_ = str.replace(path_, m, repl)
+        print path_
         match = cre_env.search(path_)
-    return path_
+    return path(path_)
 
 def resolve_path(env_vars, path_):
     if env_vars:

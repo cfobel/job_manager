@@ -32,11 +32,11 @@ class Trial:
     FINISHED = 'finished'
 
     # Variable Paths
-    EXPERIMENTS = '${PYVPR_EXPERIMENTS}'
-    RESULTS  = '${PYVPR_RESULTS}'
-    MANAGER = '${JOB_MANAGER_ROOT}'
-    WORK = '${WORK_PATH}'
-    BENCHMARKS = '${BENCHMARK_PATH}' 
+    EXPERIMENTS = path('${PYVPR_EXPERIMENTS}')
+    RESULTS  = path('${PYVPR_RESULTS}')
+    MANAGER = path('${JOB_MANAGER_ROOT}')
+    WORK = path('${WORK_PATH}')
+    BENCHMARKS = path('${BENCHMARK_PATH}') 
 
 
 class Connection(object):
@@ -201,8 +201,7 @@ class BaseTrial(object):
             resolve_env_vars(env)
             self.out_path = resolve(env, self.out_path)
             self.wrap_path = resolve(env, Trial.MANAGER)
-            self.python_path = resolve(env, Trial.WORK_PATH +
-                                                'local/bin/python') 
+            self.python_path = resolve(env, Trial.WORK) / 'local/bin/python'
         elif verbose:
             print 'No Enviroment path found'
 
@@ -397,6 +396,8 @@ class SharcNetTrial(BaseTrial):
             print 'setting time to 60 mins for test'
             self.time = 60
         work_path = resolve(self.env, Trial.WORK)
+      
+        print 'work path - ', work_path 
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
