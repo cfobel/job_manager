@@ -142,7 +142,7 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
             assert(trial[p]['queue'] == None)
             assert(trial[p]['id'] == None)
             if sharc_filter(p):
-                trial[p]['state'] = 'submitte'
+                trial[p]['state'] = 'submitted'
                 trial[p]['queue'] = 'sharcnet'                
                 T = SharcNetTrial(out_path=result_path, 
                                     exe_path=prog_path, 

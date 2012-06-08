@@ -264,7 +264,7 @@ class CoalitionTrial(BaseTrial):
     _default_connection = None 
 
     def __init__(self, params, time=180, priority=1, env='coalition.yml',
-                 exe_path=None, out_path=None, connection=None, verbose=False, test=False ):
+                 exe_path=None, out_path=None, connection=None, verbose=False, test=False, test=test ):
 
         BaseTrial.__init__(self, connection=connection,
                             out_path=out_path, exe_path=exe_path,
@@ -326,7 +326,7 @@ class SharcNetTrial(BaseTrial):
                 out_path=None, exe_path=None, connection=None, env='sharcnet.yml', verbose=False, test=False):
         BaseTrial.__init__(self, connection=connection, 
                                 out_path=out_path, exe_path=exe_path,
-                                params=params, time=time, priority=priority, env=env)
+                                params=params, time=time, priority=priority, env=env, test=test)
 
     def _get_default_connection(self):
         return SharcNetConnection(verbose=True)
