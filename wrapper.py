@@ -79,7 +79,8 @@ def run(result_path, parent, verbose=True):
         #subprocess.call(params, shell=True)
         command = ' '.join(params)
         print command
-        p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        p = subprocess.Popen(command, stdout=subprocess.PIPE, 
+                                stderr=subprocess.PIPE, shell=True)
         print p.communicate()
         ret = p.close()[1]
     except:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 
+import paramiko
 from paramiko import SSHClient, SSHConfig
 from coalition.control import CoalitionControl
 import yaml
@@ -8,27 +9,35 @@ from path import path
 import hashlib
 import getpass
 import re
-from resolve_vars import resolve_path, resolve_env_vars
+from resolve_vars import resolve, resolve_env_vars
 import sys
 
 
 # Constants
 class Trial: 
-    # servers
+    # Servers
     COALITION = 'coalition'
     SHARCNET = 'sharcnet'
     LOCAL = 'local'
-    # job states
+
+    # Job Keys
+    QUEUE = 'queue'
+    STATE = 'state'
+    ID = 'id'  
+
+    # Job States
     SUBMITTED = 'submitted'
     WAITING = 'waiting'
     ERROR = 'error'
     FINISHED = 'finished'
+
     # Variable Paths
-    EXPERIMENTS = path('$PYVPR_EXPERIMENTS')
-    RESULTS  = path('$PYVPR_RESULTS')
-    MANAGER = path('$JOB_MANAGER_ROOT')
-    WORK = path('$WORK_PATH')
-    
+    EXPERIMENTS = '${PYVPR_EXPERIMENTS}'
+    RESULTS  = '${PYVPR_RESULTS}'
+    MANAGER = '${JOB_MANAGER_ROOT}'
+    WORK = '${WORK_PATH}'
+    BENCHMARKS = '${BENCHMARK_PATH}' 
+
 
 class Connection(object):
     def __init__(self, hostname='localhost', username=None, password=None, 
@@ -59,8 +68,9 @@ class Connection(object):
             
         while True:
             try:
-                self.ssh.connect(hostname=hostname, username=username,
-                               password=password)
+                self.ssh.connect(hostname=hostname, 
+                                username=username,
+                                password=password)
                 break
             except:
                 print 'Connection failed'
@@ -71,33 +81,40 @@ class Connection(object):
         self.sftp = self.ssh.open_sftp()
         self.username = username
 
+
     def mkdir(self, dir_):
         if self.verbose:
             print 'mkdir(', dir_, ')'
         return self.sftp.mkdir(str(dir_))
+
 
     def rmdir(self, dir_):
         if self.verbose:
             print 'rmdir(', dir_, ')'
         return self.sftp.rmdir(str(dir_))
 
+
     def listdir(self, dir_):
         if self.verbose:
             print 'listdir( ', dir_, ')'
         return self.sftp.listdir(str(dir_))
+
 
     def open(self, file_, mode='r'):
         if self.verbose:
             print 'open( ', file_, ', ', mode, ')'
         return self.sftp.open(str(file_), mode)
 
+
     def exec_command(self, command):
         if self.verbose:
             print 'exec_command( ', command, ')'
         return self.ssh.exec_command(command)
 
+
     def get_username(self):
         return self.username
+
 
     def rename(self, old, new):
         if self.verbose:
@@ -106,12 +123,15 @@ class Connection(object):
 
 
 class CoalitionConnection(Connection):
+
+
     def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, 
                  username='coalition', **kwargs ):
 
         self.control = CoalitionControl("http://localhost:%d" %port)
         Connection.__init__(self, hostname=hostname, 
                             username=username, **kwargs)
+
  
     def run(self, **kwargs):
         return self.control.add(**kwargs)
@@ -119,16 +139,18 @@ class CoalitionConnection(Connection):
 
 class SharcNetConnection(Connection):
 
+
     def __init__(self, hostname='kraken.sharcnet.ca', **kwargs):
         Connection.__init__(self, hostname=hostname, **kwargs)        
  
 
-
 class BaseTrial(object):
     _default_connection = None
 
+
     def _get_default_connection(self):
-        return Connection()
+        return Connection(verbose=self.verbose)
+
 
     @property
     def connection(self):
@@ -140,20 +162,23 @@ class BaseTrial(object):
             self._default_connection = self._get_default_connection()
             return self._default_connection
 
+
     @connection.setter
     def connection(self, value):
         self._connection = value
+
 
     def _hash(self, exe_path, params):
         p = sorted( params )
         sha1 = hashlib.sha1(str((exe_path, p)))
         return path(sha1.hexdigest())
 
+
     def __init__(self, out_path, exe_path, params, time=180, 
                 priority=1, connection=None, verbose=False, 
                 test=False, env='BaseTrial.yml'):
  
-       self._connection = None
+        self._connection = None
         if connection:
             self.connection = connection
         self.test = test
@@ -174,13 +199,15 @@ class BaseTrial(object):
             env = yaml.load(open(env_file))
             self.env = env
             resolve_env_vars(env)
-            self.out_path = resolve_path(env, self.out_path)
-            self.wrap_path = resolve_path(env, '$JOB_MANAGER_ROOT')
-            self.python_path = resolve_path(env, '$WORK_PATH/local/bin/python') 
+            self.out_path = resolve(env, self.out_path)
+            self.wrap_path = resolve(env, Trial.MANAGER)
+            self.python_path = resolve(env, Trial.WORK_PATH +
+                                                'local/bin/python') 
         elif verbose:
             print 'No Enviroment path found'
 
         print self.exe_path, self.out_path
+
 
     def make_output_dir(self):
         # Check and see if the result directory has been made.
@@ -216,11 +243,13 @@ class BaseTrial(object):
         elif self.verbose:
             print self.out_path / self.hash_path,  ' exists'
 
+
     def remove_output_dir(self):
         try:
             self.connection.rmdir(self.out_path / self.hash_path)
         except:
             print "Couldn't remove output directory"
+
 
     def write_config(self):
         config = (self.exe_path, self.params)
@@ -239,6 +268,7 @@ class BaseTrial(object):
         elif self.verbose:
             print 'config.yml already exists'
 
+
     def remove_config(self):
         config_path = path(self.out_path / self.hash_path)
         if 'config.yml' in self.connection.listdir(config_path):
@@ -246,6 +276,7 @@ class BaseTrial(object):
                 self.connection.exec_command('rm %s' %(config_path / 'config.yml'))
             except:
                 print 'failed to remove config file'
+
 
     def submit(self):
         """
@@ -263,8 +294,10 @@ class BaseTrial(object):
         errors = [y for y in stderr]
         return output, errors
 
+
     def unsubmit(self):
         print 'unsubmit not yet supported here'
+
 
     def get_state(self):
         try:
@@ -280,6 +313,7 @@ class BaseTrial(object):
             print 'in progress? ', files
             return None
 
+
     def get_id(self):
         return self.id_
 
@@ -287,11 +321,14 @@ class BaseTrial(object):
 class CoalitionTrial(BaseTrial):
     _default_connection = None 
 
+
     def __init__(self, env='coalition.yml', **kwargs):
         BaseTrial.__init__(self, env=env, **kwargs)
 
+
     def _get_default_connection(self):
-        return CoalitionConnection(verbose=True)
+        return CoalitionConnection(verbose=self.verbose)
+
 
     def submit(self):
         dir_ = self.out_path / self.hash_path
@@ -306,6 +343,7 @@ class CoalitionTrial(BaseTrial):
                                           path('wrapper.py'), dir_) )
         # use id to get status and return (output, errors) for submission 
         return list(), list()
+
 
     def unsubmit(self):
         print 'command unsubmit not supported yet.'
@@ -339,11 +377,14 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
+
     def __init__(self, env='sharcnet.yml', **kwargs):
         BaseTrial.__init__(self, env=env, **kwargs)
 
+
     def _get_default_connection(self):
-        return SharcNetConnection(verbose=True)
+        return SharcNetConnection(verbose=self.verbose)
+
 
     def submit(self):
         # set the PATH environment
@@ -355,7 +396,7 @@ class SharcNetTrial(BaseTrial):
         if test:
             print 'setting time to 60 mins for test'
             self.time = 60
-        work_path = resolve_path(self.env, '$WORK_PATH')
+        work_path = resolve(self.env, Trial.WORK)
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
@@ -363,7 +404,7 @@ class SharcNetTrial(BaseTrial):
                    self.python_path,
                    str(self.wrap_path / path('wrapper.py')), str(dir_))
         if self.verbose:
-            print 'Command = ' command
+            print 'Command = ', command
         stdin, stdout, stderr = self.connection.exec_command(command)
 
         output = [line for line in stdout]
@@ -378,36 +419,6 @@ class SharcNetTrial(BaseTrial):
         
         return output, errors
 
+
     def unsubmit(self):
         self.connection.execute_command('sqkill %d' %self.id_)
-
-"""
-    sends a job to  sharcnet or coalition.
-    Intended for debugging.
-"""
-def launch(params, state, queue, prog_path, out_path):
-
-    if state != Trial.WAITING:
-        return None, None
-
-    if queue == Trial.LOCAL:
-        BaseTrial._default_connection = Connection()
-        Trial = BaseTrial(  exe_path=prog_path,
-                            out_path=out_path, 
-                            time=1, priority=1, params=params)
-
-    elif queue == Trial.COALITION:
-        CoalitionTrial._default_connection = CoalitionConnection() 
-        Trial = CoalitionTrial(time=1, priority=1, params=params, 
-                               exe_path=prog_path,
-                               out_path=out_path )
-
-    elif queue == Trial.SHARCNET:
-        SharcNetTrial._default_connection = SharcNetConnection()
-        Trial = SharcNetTrial(time=1, priority=1, params=params, 
-                               exe_path=prog_path,
-                               out_path=out_path )
-
-    Trial.make_output_dir()
-    Trial.write_config()
-    return Trial.submit()
