@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from trial import CoalitionTrial, SharcNetTrial, BaseTrial
+from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial
 import shelve
 from path import path
 import yaml
@@ -50,9 +50,9 @@ def _parse_args():
     return args
 
 def rehash(exe_path, out_path, server):
-    if server == 'sharcnet':
+    if server == Trial.SHARCNET:
         T = SharcNetTrial(params=[], exe_path=exe_path, out_path=out_path)
-    elif server == 'coaltion':
+    elif server == Trial.COALITION:
         T = CoalitionTrial(params=[], exe_path=exe_path, out_path=out_path)
     else:
         print 'unknown server ', server
@@ -85,12 +85,12 @@ def rehash(exe_path, out_path, server):
 def update(param_file, exe_path, out_path):
     entry = shelve.open(param_file)
     for k, v in entry.iteritems():
-        if v['state'] != 'submitted':
+        if v['state'] != Trial.SUBMITTED:
             print 'state ', v['state']
             continue
-        if v['queue'] == 'sharcnet':
+        if v['queue'] == Trial.SHARCNET:
             T = SharcNetTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
-        elif v['queue'] == 'coalition':
+        elif v['queue'] == Trial.COALITION:
             T = CoalitionTrial(params=eval(k), exe_path=exe_path, out_path=out_path)
         else:
             print 'Unknown Queue ', v['queue'] 
@@ -142,8 +142,8 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
             assert(trial[p]['queue'] == None)
             assert(trial[p]['id'] == None)
             if sharc_filter(p):
-                trial[p]['state'] = 'submitted'
-                trial[p]['queue'] = 'sharcnet'                
+                trial[p]['state'] = Trial.SUBMITTED
+                trial[p]['queue'] = Trial.SHARCNET                
                 T = SharcNetTrial(out_path=result_path, 
                                     exe_path=prog_path, 
                                     params=eval(p), 
@@ -153,8 +153,8 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
                                     test=test)
 
             elif coalition_filter(p):
-                trial[p]['state'] = 'submitted'
-                trial[p]['queue'] = 'coalition'
+                trial[p]['state'] = Trial.SUBMITTED
+                trial[p]['queue'] = Trial.COALITION
                 T = CoalitionTrial(out_path=result_path, 
                                     exe_path=prog_path, 
                                     params=eval(p), 
@@ -173,11 +173,17 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
     trial.close()
 
 def test_coalition(trial_file):
-    run_parameters(trial_file, lambda x: False, test, '$PYVPR_EXPERIMENTS/test.py', '$PYVPR_RESULTS', 3, 1, verbose=True, test=True)
+    run_parameters(trial_file, lambda x: False, test,
+                                Trial.EXPERIMENTS'test.py', 
+                                Trial.RESULTS'test', 3, 1, 
+                                verbose=True, test=True)
 
 
 def test_sharcnet(trial_file):
-    run_parameters(trial_file, test, lambda x: False, '$PYVPR_EXPERIMENTS/test.py', '$PYVPR_RESULTS', 3, 1, verbose=True, test=True)
+    run_parameters(trial_file, test, lambda x: False,                                 
+                                Trial.EXPERIMENTS'test.py', 
+                                Trial.RESULTS'test', 3, 1, 
+                                verbose=True, test=True)
 
 
 def show(param_file, state_var, value):

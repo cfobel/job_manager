@@ -13,8 +13,9 @@ if __name__ == "__main__":
         mcnc = [path(n.strip()) for n in open("./mcnc.txt")]
         uoft = [path(u.strip()) for u in open("./uoft.txt")]
         nets = mcnc + uoft
-        net_info = yaml.load(path('/var/www/pyvpr_results/common/'\
+        net_info = yaml.load(path('./'\
                 'anneal-fast-mean_outer_iterations_and_runtimes.yml').bytes())
+
         trial = shelve.open('96_trial_file.shelve', 'c')
 
         for net in nets:
@@ -27,4 +28,5 @@ if __name__ == "__main__":
                 params=[('netlist_file', np), ('arch_file', '$BENCHMARK_PATH/k4-n1.xml'), 
                         ('seed', seed), ('run_count', run_count), ('inner_num', 1)]
                 add_params(trial, dict(params))
+
         trial.close()

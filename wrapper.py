@@ -30,13 +30,13 @@ def run(result_path, parent, verbose=True):
 
     if not path_.exists:
         print 'Error: Path does not exist' 
-        exit(1)
+        return -1
     
     if path_.isdir:
         config_path = path_ / 'config.yml'
-        if not config_path.exists:
-            # any yaml file? or error
-            pass
+        if not config_path.exists():
+            print config_path, ' does not exists'
+            return -1
 
     if path(parent / path('environments/env_vars.yml')).isfile():
         paths = yaml.load(open(parent / 'environments/env_vars.yml', 'r'))
@@ -53,14 +53,14 @@ def run(result_path, parent, verbose=True):
         log.write('yaml open')
         log.close()
         print "couldn't open config path ", config_path
-        exit(1)
+        return -1
 
     pkg = yaml.load(yam)
     
     # TODO allow for list arguments as well not in tuple form?.
     params = [str(pkg[0])] # add executable name ./program.py
-    
-    for k, v in pkg[1]:
+    print pkg 
+    for k, v in dict(pkg[1]):
         if k and v is not None:
             params.append('-%s' %k)
             params.append('%s' %v)
@@ -74,22 +74,29 @@ def run(result_path, parent, verbose=True):
     
     start_time = datetime.now()
 
+    ret = 0
     try:
         #subprocess.call(params, shell=True)
         command = ' '.join(params)
         print command
         p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         print p.communicate()
+        ret = p.close()[1]
     except:
+        ret = -1
+
+    if ret != 0 and ret != None:
         log = open(path_ / '.error', 'w' )
         log.write('execute')
         log.close()
-        exit(1)
+        return ret
 
     end_time = datetime.now()
     log = open(path_ / '.finished', 'w')
     log.write("start time: %s\nend time: %s" %(start_time, end_time))
     log.close()
+
+    return ret
 
 
 if __name__ == "__main__":
@@ -99,5 +106,5 @@ if __name__ == "__main__":
         exit(1)
     else:
         parent = path(sys.argv[0]).parent        
-        run(sys.argv[1], parent)
+        return run(sys.argv[1], parent)
 

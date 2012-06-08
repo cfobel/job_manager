@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import paramiko
+
+from paramiko import SSHClient, SSHConfig
 from coalition.control import CoalitionControl
 import yaml
 from path import path
@@ -8,12 +9,30 @@ import hashlib
 import getpass
 import re
 from resolve_vars import resolve_path, resolve_env_vars
-from paramiko import SSHClient, SSHConfig
 import sys
 
 
+# Constants
+class Trial: 
+    # servers
+    COALITION = 'coalition'
+    SHARCNET = 'sharcnet'
+    LOCAL = 'local'
+    # job states
+    SUBMITTED = 'submitted'
+    WAITING = 'waiting'
+    ERROR = 'error'
+    FINISHED = 'finished'
+    # Variable Paths
+    EXPERIMENTS = path('$PYVPR_EXPERIMENTS')
+    RESULTS  = path('$PYVPR_RESULTS')
+    MANAGER = path('$JOB_MANAGER_ROOT')
+    WORK = path('$WORK_PATH')
+    
+
 class Connection(object):
-    def __init__(self, hostname='127.0.0.1', username=None, password=None, config_path='~/.ssh/config', verbose=False):
+    def __init__(self, hostname='localhost', username=None, password=None, 
+                config_path='~/.ssh/config', verbose=False):
         
         if not hostname:
             raise ValueError('Missing hostname')
@@ -26,15 +45,17 @@ class Connection(object):
                 if config.lookup(hostname):
                    host_config = config.lookup(hostname)
                    username = host_config['user']
-                else: print 'unknown host'
+                else: print 'Unknown host ', hostname
             else: print 'config file path wrong'
+        
         self.verbose = verbose        
         if not username:
             username = getpass.getuser()
-        print username, hostname, ssh_config_path
+        if self.verbose:
+            print username, hostname, ssh_config_path
+        
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
-        #self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             
         while True:
             try:
@@ -83,13 +104,18 @@ class Connection(object):
             print 'rename( ', old, ', ', new, ')'
         return self.sftp.rename( str(old), str(new))
 
+
 class CoalitionConnection(Connection):
-    def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, username='coalition', **kwargs ):
+    def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, 
+                 username='coalition', **kwargs ):
+
         self.control = CoalitionControl("http://localhost:%d" %port)
-        Connection.__init__(self, hostname=hostname, username=username, **kwargs )
+        Connection.__init__(self, hostname=hostname, 
+                            username=username, **kwargs)
  
     def run(self, **kwargs):
         return self.control.add(**kwargs)
+
 
 class SharcNetConnection(Connection):
 
@@ -97,7 +123,7 @@ class SharcNetConnection(Connection):
         Connection.__init__(self, hostname=hostname, **kwargs)        
  
 
-# TODO add a check status method for after running.
+
 class BaseTrial(object):
     _default_connection = None
 
@@ -124,8 +150,10 @@ class BaseTrial(object):
         return path(sha1.hexdigest())
 
     def __init__(self, out_path, exe_path, params, time=180, 
-                 priority=1, connection=None, verbose=False, test=False, env='BaseTrial.yml'):
-        self._connection = None
+                priority=1, connection=None, verbose=False, 
+                test=False, env='BaseTrial.yml'):
+ 
+       self._connection = None
         if connection:
             self.connection = connection
         self.test = test
@@ -221,8 +249,8 @@ class BaseTrial(object):
 
     def submit(self):
         """
-        Implementation dependant: 
-        Basically, call wrapper.py with 
+        Implementation dependant:
+        Basically, call wrapper.py with
         self.out_path/self.out_dir/self.hash_path
         as the argument and make use of time, priority,
         and id whenever possible.
@@ -236,8 +264,7 @@ class BaseTrial(object):
         return output, errors
 
     def unsubmit(self):
-        # kill the process here.
-        pass
+        print 'unsubmit not yet supported here'
 
     def get_state(self):
         try:
@@ -257,18 +284,11 @@ class BaseTrial(object):
         return self.id_
 
 
-# ssh sftp and control are not kept in sync after creation
-# this could cause problems. for example,
-# the user may modify ssh to use a differnt user
-# and then the sftp is under a different user's directory
 class CoalitionTrial(BaseTrial):
     _default_connection = None 
 
-    def __init__(self, params, time=180, priority=1, env='coalition.yml',
-                 exe_path=None, out_path=None, connection=None, verbose=False, test=False):
-        BaseTrial.__init__(self, connection=connection,
-                            out_path=out_path, exe_path=exe_path,
-                            params=params, time=time, priority=priority, env=env)
+    def __init__(self, env='coalition.yml', **kwargs):
+        BaseTrial.__init__(self, env=env, **kwargs)
 
     def _get_default_connection(self):
         return CoalitionConnection(verbose=True)
@@ -282,7 +302,8 @@ class CoalitionTrial(BaseTrial):
         self.id_ = self.connection.run(
                          affinity=affin,
                          dir=self.exe_path.parent,
-                         command='%s %s' %( self.wrap_path / path('wrapper.py'), dir_) )
+                         command='%s %s' %( self.wrap_path / 
+                                          path('wrapper.py'), dir_) )
         # use id to get status and return (output, errors) for submission 
         return list(), list()
 
@@ -290,12 +311,8 @@ class CoalitionTrial(BaseTrial):
         print 'command unsubmit not supported yet.'
 
 
-
-# limitations-currently only one server can be used for each run of the script.
-# The class members once set, are permanent the user would have to manually
-# modify SharcNetTrial.ssh and sftp to use a different server.
 class SharcNetTrial(BaseTrial):
-    _default_connection = None #SharcNetConnection()
+    _default_connection = None
     PATH = """/opt/sharcnet/archive_tools/1.1/bin\
 :/opt/sharcnet/compile/1.3/bin\
 :/opt/sharcnet/vmd/1.8.7/bin\
@@ -322,11 +339,8 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
-    def __init__(self, params, time=180, priority=1,
-                out_path=None, exe_path=None, connection=None, env='sharcnet.yml', verbose=False, test=False):
-        BaseTrial.__init__(self, connection=connection, 
-                                out_path=out_path, exe_path=exe_path,
-                                params=params, time=time, priority=priority, env=env, test=test)
+    def __init__(self, env='sharcnet.yml', **kwargs):
+        BaseTrial.__init__(self, env=env, **kwargs)
 
     def _get_default_connection(self):
         return SharcNetConnection(verbose=True)
@@ -341,7 +355,6 @@ class SharcNetTrial(BaseTrial):
         if test:
             print 'setting time to 60 mins for test'
             self.time = 60
-        
         work_path = resolve_path(self.env, '$WORK_PATH')
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
@@ -349,8 +362,8 @@ class SharcNetTrial(BaseTrial):
                    test, self.time, str(dir_/path('log.txt')), 
                    self.python_path,
                    str(self.wrap_path / path('wrapper.py')), str(dir_))
-        
-        print command
+        if self.verbose:
+            print 'Command = ' command
         stdin, stdout, stderr = self.connection.exec_command(command)
 
         output = [line for line in stdout]
@@ -368,29 +381,28 @@ class SharcNetTrial(BaseTrial):
     def unsubmit(self):
         self.connection.execute_command('sqkill %d' %self.id_)
 
-
 """
     sends a job to  sharcnet or coalition.
     Intended for debugging.
 """
-def launch( params, state, queue, prog_path, out_path ):
+def launch(params, state, queue, prog_path, out_path):
 
-    if state != 'waiting':
+    if state != Trial.WAITING:
         return None, None
 
-    if queue == 'local':
+    if queue == Trial.LOCAL:
         BaseTrial._default_connection = Connection()
         Trial = BaseTrial(  exe_path=prog_path,
                             out_path=out_path, 
                             time=1, priority=1, params=params)
 
-    elif queue == 'coalition':
+    elif queue == Trial.COALITION:
         CoalitionTrial._default_connection = CoalitionConnection() 
         Trial = CoalitionTrial(time=1, priority=1, params=params, 
                                exe_path=prog_path,
                                out_path=out_path )
 
-    elif queue == 'sharcnet':
+    elif queue == Trial.SHARCNET:
         SharcNetTrial._default_connection = SharcNetConnection()
         Trial = SharcNetTrial(time=1, priority=1, params=params, 
                                exe_path=prog_path,

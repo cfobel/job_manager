@@ -6,6 +6,16 @@ from path import path
 import yaml
 
 
+def resolve(env_vars, path_):
+    cre_env = re.compile(r'\$\{(.*?)\}')
+    match = cre_env.search(path_)
+
+    while match:
+        m = match.group()
+        path_ = re.sub(string=path_, pattern=m, repl=env_vars[m])
+        match = cre_env.search(path_)
+    return path_
+
 def resolve_path(env_vars, path_):
     if env_vars:
         resolve_env_vars(env_vars)
@@ -42,6 +52,12 @@ def resolve_env_vars(env_vars):
 
 
 if __name__ == '__main__':
-    env_vars = yaml.load(path('/home/cfobel/env_vars.yml').bytes())
+    env_vars = yaml.load(path('/home/rpattiso/job_manager/environments/env_vars.yml').bytes())
+    print env_vars
     resolve_env_vars(env_vars)
+    print 'resolve'
+    print env_vars
+    path_ = resolve(env_vars, '${PYVPR_EXAMPLES}96/freeze_annealer')
+    print path_
+
 
