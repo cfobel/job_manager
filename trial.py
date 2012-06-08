@@ -265,8 +265,7 @@ class CoalitionTrial(BaseTrial):
     _default_connection = None 
 
     def __init__(self, params, time=180, priority=1, env='coalition.yml',
-                 exe_path=None, out_path=None, connection=None, verbose=False, test=False, test=test ):
-
+                 exe_path=None, out_path=None, connection=None, verbose=False, test=False):
         BaseTrial.__init__(self, connection=connection,
                             out_path=out_path, exe_path=exe_path,
                             params=params, time=time, priority=priority, env=env)
@@ -343,7 +342,7 @@ class SharcNetTrial(BaseTrial):
             print 'setting time to 60 mins for test'
             self.time = 60
         
-        work_path = resolve_path(self.env, '${WORK_PATH}')
+        work_path = resolve_path(self.env, '$WORK_PATH')
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
