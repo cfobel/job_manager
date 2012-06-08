@@ -22,7 +22,7 @@ if __name__ == "__main__":
             np = '$BENCHMARK_PATH/' + net
 
             S = SharcNetTrial(params=[('netlist_file', np), ('arch_file', '$BENCHMARK_PATH/k4-n1.xml'), 
-                                    ('seed', seed), ('run_count', run_count)], time=runtime, 
+                                    ('seed', seed), ('run_count', run_count), ('inner_num', 1)], time=runtime, 
                                     priority=1, out_path='$PYVPR_RESULTS/96', 
                                     exe_path='$PYVPR_EXPERIMENTS/96/freeze_annealer.py')
             output_path = S.out_path / S.hash_path
