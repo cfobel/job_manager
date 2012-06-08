@@ -210,7 +210,8 @@ class BaseTrial(object):
 
     def make_output_dir(self):
         # Check and see if the result directory has been made.
-        print 'output = ', self.out_path
+        if self.verbose:
+            print 'output = ', self.out_path
         parent = self.out_path.parent
         if self.verbose:
             print 'checking for ', self.out_path.namebase, ' in ',  parent
