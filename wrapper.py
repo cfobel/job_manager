@@ -83,7 +83,8 @@ def run(result_path, parent, verbose=False):
             print 'In Wrapper Command = ', command
         p = subprocess.Popen(command, stdout=subprocess.PIPE, 
                                 stderr=subprocess.PIPE, shell=True)
-        print p.communicate()
+        if verbose:
+            print p.communicate()
         ret = p.close()[1]
     except:
         ret = -1

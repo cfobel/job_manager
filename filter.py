@@ -21,6 +21,7 @@ def _parse_args():
     parser.add_argument('-coalition', action='store_true')
     parser.add_argument('-sharcnet', action='store_true')
     parser.add_argument('-local', action='store_true')
+    parser.add_argument('-verbose', action='store_true')
     parser.add_argument('-submit', action='store_true')
     parser.add_argument('-update', action='store_true')
     parser.add_argument('-rehash', action='store_true')
@@ -129,14 +130,14 @@ def add_params(trial_file, params):
                                 Trial.ID:None}
 
 
-def run_coalition(trial_file, prog_path, result_path, run_time, priority):
+def run_coalition(trial_file, prog_path, result_path, run_time, priority, verbose=False):
      run_parameters(trial_file, lambda x: False, lambda x: True, prog_path,
-                    result_path, run_time, priority)
+                    result_path, run_time, priority, verbose=verbose)
 
 
-def run_sharcnet(trial_file, prog_path, result_path, run_time, priority):
+def run_sharcnet(trial_file, prog_path, result_path, run_time, priorityi, verbose=False):
     run_parameters(trial_file, lambda x: True, lambda x: False, prog_path, 
-                    result_path, run_time, priority)
+                    result_path, run_time, priorityi, verbose=verbose)
 
 
 def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
@@ -181,17 +182,15 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
     trial.close()
 
 
-def test_coalition(trial_file):
+def test_coalition(trial_file, script='python '+Trial.EXPERIMENTS/'test.py', output=Trial.RESULTS/'test'):
     run_parameters(trial_file, lambda x: False, test,
-                                Trial.EXPERIMENTS+'test.py', 
-                                Trial.RESULTS+'test', 3, 1, 
+                                script, output, 3, 1, 
                                 verbose=True, test=True)
 
 
-def test_sharcnet(trial_file):
+def test_sharcnet(trial_file, script='python '+Trial.EXPERIMENTS/'test.py', output=Trial.RESULTS/'test'):
     run_parameters(trial_file, test, lambda x: False,                                 
-                                Trial.EXPERIMENTS+'test.py', 
-                                Trial.RESULTS+'test', 3, 1, 
+                                script, output, 3, 1, 
                                 verbose=True, test=True)
 
 
@@ -207,7 +206,8 @@ def show(param_file, state_var, value):
 
 if __name__ == "__main__":
     args = _parse_args()
-    
+    if args.verbose:
+        print 'filter args := ', args
     if args.show:
         value = None
         if len(args.state) > 1:
@@ -216,10 +216,10 @@ if __name__ == "__main__":
     elif args.submit:
         if args.coalition:
             run_coalition(args.param_file, args.script, args.trial_name, 
-                                args.run_time, args.priority)
+                                args.run_time, args.priority, verbose=args.verbose)
         elif args.sharcnet: 
             run_sharcnet(args.param_file, args.script, args.trial_name, 
-                                args.run_time, args.priority)
+                                args.run_time, args.priority, verbose=args.verbose)
         else:
             print 'No Server Specified; use -coalition or -sharcnet'
     elif args.update:

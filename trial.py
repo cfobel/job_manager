@@ -408,8 +408,8 @@ class SharcNetTrial(BaseTrial):
             print 'setting time to 60 mins for test'
             self.time = 60
         work_path = resolve(self.env, Trial.WORK)
-      
-        print 'work path = ', work_path 
+        if self.verbose: 
+            print 'work path = ', work_path 
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
