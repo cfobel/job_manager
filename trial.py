@@ -144,6 +144,7 @@ class BaseTrial(object):
         self.wrap_path = path('./')
         if env_file.isfile():
             env = yaml.load(open(env_file))
+            self.env = env
             resolve_env_vars(env)
             self.out_path = resolve_path(env, self.out_path)
             self.wrap_path = resolve_path(env, '$JOB_MANAGER_ROOT')
@@ -341,7 +342,10 @@ class SharcNetTrial(BaseTrial):
         if test:
             print 'setting time to 60 mins for test'
             self.time = 60
-        command = "PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
+        
+        work_path = resolve_path(self.env, '${WORK_PATH}')
+        command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
+                   work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
                    test, self.time, str(dir_/path('log.txt')), 
                    self.python_path,

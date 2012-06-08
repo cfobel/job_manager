@@ -7,21 +7,24 @@ import yaml
 
 
 def resolve_path(env_vars, path_):
-    resolve_env_vars(env_vars)
-    did_replace = True
+    if env_vars:
+        resolve_env_vars(env_vars)
+        did_replace = True
 
-    for pure in env_vars.keys():
-        if isinstance(env_vars[pure], list):
-            path_ = re.sub(pattern=r'\$%s' % pure, repl=':'.join(env_vars[pure]),
-            string=path_) 
-        else:
-            path_ = re.sub(pattern=r'\$%s' % pure, repl=env_vars[pure],
-            string=path_) 
-         
-        path_ = re.sub(pattern=r'//', repl='/', string=path_)        
+        for pure in env_vars.keys():
+            if isinstance(env_vars[pure], list):
+                path_ = re.sub(pattern=r'\$%s' % pure, repl=':'.join(env_vars[pure]),
+                string=path_) 
+            else:
+                path_ = re.sub(pattern=r'\$%s' % pure, repl=env_vars[pure],
+                string=path_) 
+            
+            path_ = re.sub(pattern=r'//', repl='/', string=path_)        
 
 
-    return path(path_)
+        return path(path_)
+    else:
+        return path(path_)
 
 
 def resolve_env_vars(env_vars):
