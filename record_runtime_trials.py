@@ -25,9 +25,9 @@ if __name__ == "__main__":
 
     trial = shelve.open(name, 'c')
     for net in nets:
-        np = '${BENCHMARK_PATH}' + net
+        np = '${BENCHMARK_PATH}/' + net
         params=[('netlist_file', np), 
-                ('arch_file', '${BENCHMARK_PATH}k4-n1.xml'), 
+                ('arch_file', '${BENCHMARK_PATH}/k4-n1.xml'), 
                 ('inner_num', 10)]
         add_params(trial, dict(params))
     trial.close()
