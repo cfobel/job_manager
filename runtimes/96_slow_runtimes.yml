@@ -1,0 +1,41 @@
+alu4: {cost: 191.54133606, inner_num: 10.0, netlist: alu4, run_count: 122.0, runtime: 44.238387,
+  time_s: 44.238387}
+apex2: {cost: 273.217254639, inner_num: 10.0, netlist: apex2, run_count: 124.0, runtime: 65.712162,
+  time_s: 65.712162}
+apex4: {cost: 180.370895386, inner_num: 10.0, netlist: apex4, run_count: 117.0, runtime: 34.451788,
+  time_s: 34.451788}
+bigkey: {cost: 175.72857666, inner_num: 10.0, netlist: bigkey, run_count: 127.0, runtime: 64.903729,
+  time_s: 64.903729}
+clma: {cost: 1393.50378418, inner_num: 10.0, netlist: clma, run_count: 137.0, runtime: 786.20423,
+  time_s: 786.20423}
+des: {cost: 199.101089478, inner_num: 10.0, netlist: des, run_count: 122.0, runtime: 64.047718,
+  time_s: 64.047718}
+diffeq: {cost: 147.536895752, inner_num: 10.0, netlist: diffeq, run_count: 118.0,
+  runtime: 46.053194, time_s: 46.053194}
+dsip: {cost: 158.413024902, inner_num: 10.0, netlist: dsip, run_count: 122.0, runtime: 47.704893,
+  time_s: 47.704893}
+elliptic: {cost: 457.765075684, inner_num: 10.0, netlist: elliptic, run_count: 130.0,
+  runtime: 188.098774, time_s: 188.098774}
+ex1010: {cost: 654.792785645, inner_num: 10.0, netlist: ex1010, run_count: 133.0,
+  runtime: 264.907505, time_s: 264.907505}
+ex5p: {cost: 162.09463501, inner_num: 10.0, netlist: ex5p, run_count: 114.0, runtime: 29.087636,
+  time_s: 29.087636}
+frisc: {cost: 519.536193848, inner_num: 10.0, netlist: frisc, run_count: 124.0, runtime: 172.702475,
+  time_s: 172.702475}
+misex3: {cost: 189.4662323, inner_num: 10.0, netlist: misex3, run_count: 120.0, runtime: 40.56037,
+  time_s: 40.56037}
+pdc: {cost: 879.96862793, inner_num: 10.0, netlist: pdc, run_count: 127.0, runtime: 278.458655,
+  time_s: 278.458655}
+s298: {cost: 204.322906494, inner_num: 10.0, netlist: s298, run_count: 125.0, runtime: 58.448125,
+  time_s: 58.448125}
+s38417: {cost: 660.734619141, inner_num: 10.0, netlist: s38417, run_count: 136.0,
+  runtime: 569.89013, time_s: 569.89013}
+s38584.1: &id001 {cost: 656.213745117, inner_num: 10.0, netlist: s38584_1, run_count: 135.0,
+  runtime: 565.900327, time_s: 565.900327}
+s38584_1: *id001
+seq: {cost: 247.538970947, inner_num: 10.0, netlist: seq, run_count: 118.0, runtime: 56.278459,
+  time_s: 56.278459}
+spla: {cost: 595.509765625, inner_num: 10.0, netlist: spla, run_count: 128.0, runtime: 188.356813,
+  time_s: 188.356813}
+tseng: {cost: 93.1881790161, inner_num: 10.0, netlist: tseng, run_count: 119.0, runtime: 29.859512,
+  time_s: 29.859512}
