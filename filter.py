@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial
+from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial, SharcNetConnection
 import shelve
 from path import path
 import yaml
@@ -164,8 +164,13 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
             assert(trial[p][Trial.ID] == None)
             if sharc_filter(p):
                 trial[p][Trial.STATE] = Trial.SUBMITTED
-                trial[p][Trial.QUEUE] = Trial.SHARCNET                
-                T = SharcNetTrial(out_path=result_path, 
+                trial[p][Trial.QUEUE] = Trial.SHARCNET
+
+                if SharcNetTrial._default_connection == None:
+                    C = SharcNetConnection(username='cfobel')
+                    SharcNetTrial._default_connection = C 
+               
+                T = SharcNetTrial(out_path=result_path,
                                     exe_path=prog_path, 
                                     params=eval(p), 
                                     time=run_time, 
@@ -230,7 +235,7 @@ if __name__ == "__main__":
                                 args.run_time, args.priority, 
                                 verbose=args.verbose))
         elif args.sharcnet: 
-            submit_all(args.param_file,  run_sharcnet(args.param_file, 
+            submit_all(args.param_file, run_sharcnet(args.param_file, 
                                 args.script, args.trial_name, 
                                 args.run_time, args.priority,
                                 verbose=args.verbose))
