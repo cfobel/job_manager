@@ -186,7 +186,7 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
                                     test=test)
             else:
                 continue
-            
+            trial_objs.append((T, p))
     trial.close()
     return trial_objs
 
