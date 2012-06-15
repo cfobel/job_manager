@@ -17,6 +17,8 @@ def submit_all(trial_file, trial_list):
         trial[p][Trial.ID] = T.get_id()
         trial[p][Trial.STATE] = Trial.SUBMITTED
         trial[p][Trial.QUEUE] = T.get_server()
+
+    print '%d jobs submitted!' %len(trial_list)
     trial.close()
 
 
@@ -162,6 +164,7 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
     trial =  shelve.open(trial_file, writeback=True)
     trial_objs = list()
     parameters = trial.keys()
+    already_submitted = 0
     for p in parameters:
         if trial[p][Trial.STATE] == Trial.WAITING:
             assert(trial[p][Trial.QUEUE] == None)
@@ -190,6 +193,12 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
             else:
                 continue
             trial_objs.append((T, p))
+        else:
+            already_submitted += 1
+    if already_submitted > 0:
+        print '%d Were already submitted; And Trials not created for them' %already_submitted
+    print '%d Trials were created' %len(trial_objs)
+
     trial.close()
     return trial_objs
 
