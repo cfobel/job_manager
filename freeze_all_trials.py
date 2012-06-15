@@ -50,15 +50,16 @@ if __name__ == "__main__":
         D = csv.DictReader(open('./runtimes/96_slow_avg.csv'))
     else:
         print 'Unknown mode ', sys.argv[2]
-    name += '.shelve'
 
     net_info = dict([(d['netlist'], d) for d in D])
 
     if len(sys.argv) == 4 and sys.argv[3] == '-test':
         test = True
+        name += '_test'
     else:
         test = False
 
+    name += '.shelve'
     trial = shelve.open(name, 'c')
     for net in nets:
         for seed in range(10):
