@@ -6,6 +6,16 @@ from path import path
 import yaml
 
 
+def submit_all(trial_file, trial_list):
+    trial = shelve.open(args.param_file, writeback=True)
+    for T, p in trial_list:
+        T.make_output_dir()
+        T.write_config()
+        T.submit()
+        trial[p][Trial.ID] = T.get_id()
+    trial.close()
+
+
 def _parse_args():
     """Parses arguments, returns ``(options, args)``."""
     from argparse import ArgumentParser
@@ -130,14 +140,16 @@ def add_params(trial_file, params):
                                 Trial.ID:None}
 
 
-def run_coalition(trial_file, prog_path, result_path, run_time, priority, verbose=False):
-     run_parameters(trial_file, lambda x: False, lambda x: True, prog_path,
-                    result_path, run_time, priority, verbose=verbose)
+def run_coalition(trial_file, prog_path, result_path, run_time, priority,
+                                                             verbose=False):
+    return run_parameters(trial_file, lambda x: False, lambda x: True, 
+                prog_path, result_path, run_time, priority, verbose=verbose)
 
 
-def run_sharcnet(trial_file, prog_path, result_path, run_time, priorityi, verbose=False):
-    run_parameters(trial_file, lambda x: True, lambda x: False, prog_path, 
-                    result_path, run_time, priorityi, verbose=verbose)
+def run_sharcnet(trial_file, prog_path, result_path, run_time, priority, 
+                                                            verbose=False):
+    return run_parameters(trial_file, lambda x: True, lambda x: False, 
+            prog_path, result_path, run_time, priority, verbose=verbose)
 
 
 def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
@@ -145,6 +157,7 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
 
     trial =  shelve.open(trial_file, writeback=True)
  
+    trial_objs = list()
     parameters = trial.keys()
     for p in parameters:
         if trial[p][Trial.STATE] == Trial.WAITING:
@@ -173,25 +186,23 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
                                     test=test)
             else:
                 continue
-
-            T.make_output_dir()
-            T.write_config()
-            T.submit()
-            trial[p][Trial.ID] = T.get_id()
-
+            
     trial.close()
+    return trial_objs
 
 
-def test_coalition(trial_file, script='python '+Trial.EXPERIMENTS/'test.py', output=Trial.RESULTS/'test'):
-    run_parameters(trial_file, lambda x: False, test,
+def test_coalition(trial_file, script='python '+Trial.EXPERIMENTS/'test.py',
+                                                 output=Trial.RESULTS/'test'):
+    submit_all(trial_file, run_parameters(trial_file, lambda x: False, test,
                                 script, output, 3, 1, 
-                                verbose=True, test=True)
+                                verbose=True, test=True))
 
 
-def test_sharcnet(trial_file, script='python '+Trial.EXPERIMENTS/'test.py', output=Trial.RESULTS/'test'):
-    run_parameters(trial_file, test, lambda x: False,                                 
+def test_sharcnet(trial_file, script='python '+Trial.EXPERIMENTS/'test.py', 
+                                                output=Trial.RESULTS/'test'):
+    submit_all(trial_file, run_parameters(trial_file, test, lambda x: False,                                 
                                 script, output, 3, 1, 
-                                verbose=True, test=True)
+                                verbose=True, test=True))
 
 
 def show(param_file, state_var, value):
@@ -215,11 +226,15 @@ if __name__ == "__main__":
         show(args.param_file, args.state[0], value)
     elif args.submit:
         if args.coalition:
-            run_coalition(args.param_file, args.script, args.trial_name, 
-                                args.run_time, args.priority, verbose=args.verbose)
+            submit_all(args.param_file, run_coalition(args.param_file,
+                                args.script, args.trial_name, 
+                                args.run_time, args.priority, 
+                                verbose=args.verbose))
         elif args.sharcnet: 
-            run_sharcnet(args.param_file, args.script, args.trial_name, 
-                                args.run_time, args.priority, verbose=args.verbose)
+            submit_all(args.param_file,  run_sharcnet(args.param_file, 
+                                args.script, args.trial_name, 
+                                args.run_time, args.priority,
+                                verbose=args.verbose))
         else:
             print 'No Server Specified; use -coalition or -sharcnet'
     elif args.update:

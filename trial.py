@@ -238,7 +238,7 @@ class BaseTrial(object):
                     print 'created result directory'
             except:
                 print 'failed to make ', self.out_path
-                exit(1)
+                sys.exit(1)
         elif self.verbose: 
             print self.out_path, ' exists'
         
@@ -275,7 +275,7 @@ class BaseTrial(object):
                     print 'created config.yml'
             except:
                 print 'failed to write config.yml'
-                exit(1)
+                sys.exit(1)
         elif self.verbose:
             print 'config.yml already exists'
 
