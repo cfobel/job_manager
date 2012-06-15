@@ -147,6 +147,8 @@ class SharcNetConnection(Connection):
 class BaseTrial(object):
     _default_connection = None
 
+    def get_server(self):
+        return Trial.LOCAL
 
     def _get_default_connection(self):
         return Connection(verbose=self.verbose)
@@ -332,6 +334,8 @@ class BaseTrial(object):
 class CoalitionTrial(BaseTrial):
     _default_connection = None 
 
+    def get_server(self):
+        return Trial.COALITION
 
     def __init__(self, env='coalition.yml', **kwargs):
         BaseTrial.__init__(self, env=env, **kwargs)
@@ -388,6 +392,8 @@ class SharcNetTrial(BaseTrial):
 :/opt/sharcnet/blast/current/bin\
 :/opt/sharcnet/openmpi/1.4.2/intel/bin"""
 
+    def get_server(self):
+        return Trial.SHARCNET
 
     def __init__(self, env='sharcnet.yml', **kwargs):
         BaseTrial.__init__(self, env=env, **kwargs)

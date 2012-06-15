@@ -11,8 +11,12 @@ def submit_all(trial_file, trial_list):
     for T, p in trial_list:
         T.make_output_dir()
         T.write_config()
+
+    for T, p in trial_list:
         T.submit()
         trial[p][Trial.ID] = T.get_id()
+        trial[p][Trial.STATE] = Trial.SUBMITTED
+        trial[p][Trial.QUEUE] = T.get_server()
     trial.close()
 
 
@@ -163,9 +167,6 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
             assert(trial[p][Trial.QUEUE] == None)
             assert(trial[p][Trial.ID] == None)
             if sharc_filter(p):
-                trial[p][Trial.STATE] = Trial.SUBMITTED
-                trial[p][Trial.QUEUE] = Trial.SHARCNET
-
                 if SharcNetTrial._default_connection == None:
                     C = SharcNetConnection(username='cfobel')
                     SharcNetTrial._default_connection = C 
@@ -179,8 +180,6 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
                                     test=test)
 
             elif coalition_filter(p):
-                trial[p][Trial.STATE] = Trial.SUBMITTED
-                trial[p][Trial.QUEUE] = Trial.COALITION
                 T = CoalitionTrial(out_path=result_path, 
                                     exe_path=prog_path, 
                                     params=eval(p), 
