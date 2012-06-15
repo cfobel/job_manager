@@ -1,0 +1,106 @@
+from tables import *
+from path import path
+from pyvpr import VPRContext, vpr_ext
+import re
+import numpy as np
+
+
+def get_modifier(placement, seed=1):
+    modifier_xml_string = '''<AnnealingModifier seed="%d">
+                <SwapConfig>
+                    <AnnealSwapHandler fixed_pins="true" />
+                </SwapConfig>
+            </AnnealingModifier>''' % seed
+
+    modifier_xml = vpr_ext.load_xml_string(
+                                modifier_xml_string)
+    modifier_config = vpr_ext.select_single_node(
+            modifier_xml, '//AnnealingModifier').node()
+    modifier = vpr_ext.AnnealingModifier(placement, modifier_config)
+    return modifier
+
+
+def wake_annealer(hd5_file, context, with_state=lambda x:False, 
+                                       with_temp_stage=lambda x:False,
+                                       with_stage_transistion=lambda x:False):
+    
+    net = context.netlist_file
+    inner_num = context.inner_num
+    seed = context.seed
+    net_path = path(path('/') / path('inner_num_%d'%inner_num) /
+                    path(re.sub(r'[\-\.]', '_', path(net).namebase)))
+    state_node = hd5_file.getNode(net_path / path('bbcalculator') /
+                    path('state'))
+
+    choice = None
+    for state in state_node:
+        if with_state(state):
+            choice = state
+            break
+ 
+    if not choice:
+        for temp_stage in temp_node:
+            if with_temp(temp_stage):
+                choice = temp_stage
+                break
+
+    if not choice:
+        for stage in stage_node:
+            if with_stage_transistion(stage):
+                choice = stage
+                break
+
+    calc_label = 'Bounding box'
+    index = choice['id_']
+    place_path = path(net_path / path('bbcalculator') / path('placements') /
+                         path('seed%d'%seed))
+    place_node = hd5_file.getNode(place_path)
+    
+    placement = context.get_random_placement()
+    modifier = get_modifier(placement, seed)
+    
+    calc_state = dict(
+        x_max=place_node.x_max[index].astype(np.uint32),
+        x_min=np.array(place_node.x_min[index], dtype=np.uint32),
+        y_max=np.array(place_node.y_max[index], dtype=np.uint32),
+        y_min=np.array(place_node.y_min[index], dtype=np.uint32),
+        x_max_block_count=np.array(place_node.x_max_block_count[index]),
+        x_min_block_count=np.array(place_node.x_min_block_count[index]),
+        y_max_block_count=np.array(place_node.y_max_block_count[index]),
+        y_min_block_count=np.array(place_node.y_min_block_count[index]),
+        net_costs=np.array(place_node.net_costs[index]),
+        calc_label=calc_label,
+        cost=float(choice['cost']))
+
+    placement_state = dict(
+            clb_grid=place_node.clb_grid[index],
+            io_grid=place_node.io_grid[index]
+            )
+
+    state = dict(
+        swap_handler_seed=choice['swap_seed'],
+        moves_since_cost_recompute=choice['moves_since_cost_recompute'],
+        seed=choice['mod_seed'],
+        temperature=choice['temp'],
+        rlim=choice['rlim'],
+        netlist=net,
+        architecture=arch,
+        inner_num=inner_num,
+        placement_state=placement_state,
+        calc_state=calc_state)
+
+    modifier.set_state(state)
+    return modifier
+
+
+if __name__ == "__main__":
+    hf5 = openFile('/home/rpattiso/all_96_2.h5')
+    net = '/home/rpattiso/pyvpr_example/benchmarks/mcnc/tseng.net'
+    arch = '/home/rpattiso/pyvpr_example/k4-n1.xml'
+    context = VPRContext.annealer_context(net, arch, inner_num=1, seed=1)
+    modifier = wake_annealer(hf5, context, with_state=lambda s: s['run_count'] > 45)
+    hf5.close()    
+    for i, x in enumerate(modifier.get_anneal_iter()):
+        pass
+    print 'iters left = ', i 
+
