@@ -156,7 +156,6 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
                     result_path, run_time, priority, verbose=False, test=False):
 
     trial =  shelve.open(trial_file, writeback=True)
- 
     trial_objs = list()
     parameters = trial.keys()
     for p in parameters:
