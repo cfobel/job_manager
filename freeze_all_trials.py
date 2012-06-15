@@ -65,8 +65,8 @@ if __name__ == "__main__":
         for seed in range(10):
             net_name = re.sub(r'[\.\-]', '_', net.namebase)
             run_count = net_info[net_name]['run_count']
-            np = '${BENCHMARK_PATH}/' + net
-            params=[('netlist_file', np), ('arch_file', '${BENCHMARK_PATH}/k4-n1.xml'), 
+            np =Trial.BENCHMARKS/net
+            params=[('netlist_file', np), ('arch_file', Trial.BENCHMARKS/'k4-n1.xml'), 
                     ('seed', seed), ('run_count', run_count), ('inner_num', inner_num)]
             add_params(trial, dict(params))
             if test: break
