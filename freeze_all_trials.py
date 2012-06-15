@@ -12,7 +12,9 @@ import re
 
 usage=\
 """
-    {-uoft -mcnc -all} {-fast -slow }
+    {-uoft -mcnc -all} {-fast -slow} [-test]
+    
+    -test will only create the first job
 """
 
 if __name__ == "__main__":
@@ -20,7 +22,7 @@ if __name__ == "__main__":
     mcnc = [path(n.strip()) for n in open("./mcnc.txt")]
     uoft = [path(u.strip()) for u in open("./uoft.txt")]
 
-    if len(sys.argv) <> 3:
+    if len(sys.argv) < 3:
         print usage
         exit(0)
 
@@ -52,6 +54,11 @@ if __name__ == "__main__":
 
     net_info = dict([(d['netlist'], d) for d in D])
 
+    if len(sys.argv) == 4 and sys.argv[3] == '-test':
+        test = True
+    else:
+        test = False
+
     trial = shelve.open(name, 'c')
     for net in nets:
         for seed in range(10):
@@ -61,4 +68,8 @@ if __name__ == "__main__":
             params=[('netlist_file', np), ('arch_file', '${BENCHMARK_PATH}/k4-n1.xml'), 
                     ('seed', seed), ('run_count', run_count), ('inner_num', inner_num)]
             add_params(trial, dict(params))
+            if test: break
+        if test: break
     trial.close()
+
+
