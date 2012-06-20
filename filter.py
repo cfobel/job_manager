@@ -8,17 +8,27 @@ import yaml
 
 def submit_all(trial_file, trial_list):
     trial = shelve.open(args.param_file, writeback=True)
-    for T, p in trial_list:
+ 
+    length = len(trial_list)
+    tenth = length / 10
+
+    print 'Creating config files and directories, this may take awhile...'
+    for i, (T, p) in enumerate(trial_list):
         T.make_output_dir()
         T.write_config()
+        if i % tenth == 0:
+            print '%d%% complete...' %((100.0 * i) / length) 
 
-    for T, p in trial_list:
+    print 'Submitting jobs...'
+    for i, (T, p) in enumerate(trial_list):
         T.submit()
         trial[p][Trial.ID] = T.get_id()
         trial[p][Trial.STATE] = Trial.SUBMITTED
         trial[p][Trial.QUEUE] = T.get_server()
+        if i % tenth == 0:
+            print '%d%% complete...' %((100.0 * i) / length) 
 
-    print '%d jobs submitted!' %len(trial_list)
+    print '%d jobs submitted!' %length
     trial.close()
 
 
@@ -52,7 +62,7 @@ def _parse_args():
                         dest='param_file', type=path)
     parser.add_argument('-script', nargs=1,
                         dest='script', type=path)
-    parser.add_argument('-trial_name', nargs=1,
+    parser.add_argument('-output_dir', nargs=1,
                          dest='trial_name', type=str )
    
     args = parser.parse_args()
@@ -109,6 +119,9 @@ def update(param_file, exe_path, out_path):
             print 'state ', v[Trial.STATE]
             continue
         if v[Trial.QUEUE] == Trial.SHARCNET:
+            if SharcNetTrial._default_connection == None:
+                C = SharcNetConnection(username='cfobel')
+                SharcNetTrial._default_connection = C 
             T = SharcNetTrial(params=eval(k), exe_path=exe_path, 
                                             out_path=out_path)
         elif v[Trial.QUEUE] == Trial.COALITION:
