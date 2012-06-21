@@ -12,6 +12,12 @@ import re
 from resolve_vars import resolve, resolve_env_vars
 import sys
 
+#TODO
+"""
+    Add __repr__ or state method so that a trial
+    can be written to a file and brought back later to check on it's status.
+    Bring the functionality from the filter script.
+"""
 
 # Constants
 class Trial: 
@@ -30,6 +36,11 @@ class Trial:
     WAITING = 'waiting'
     ERROR = 'error'
     FINISHED = 'finished'
+
+    # Files
+    CONFIG = 'config.yml'
+    WRAPPER = 'wrapper.py'
+    LOG = 'log.txt'
 
     # Variable Paths
     EXPERIMENTS = path('${PYVPR_EXPERIMENTS}')
@@ -153,7 +164,6 @@ class BaseTrial(object):
     def _get_default_connection(self):
         return Connection(verbose=self.verbose)
 
-
     @property
     def connection(self):
         if self._default_connection:
@@ -176,7 +186,7 @@ class BaseTrial(object):
         return path(sha1.hexdigest())
 
 
-    def __init__(self, out_path, exe_path, params, time=180, 
+    def __init__(self, out_path, exe_path, params, time=10080, 
                 priority=1, connection=None, verbose=False, 
                 test=False, env='BaseTrial.yml'):
  
@@ -266,10 +276,10 @@ class BaseTrial(object):
         if self.verbose:
             print 'Config = ', config
         config_path = path(self.out_path / self.hash_path)
-        if 'config.yml' not in self.connection.listdir(config_path):
+        if Trial.CONFIG not in self.connection.listdir(config_path):
             try:
                 conf_file = self.connection.open(
-                                            config_path / path('config.yml'),
+                                            config_path / path(Trial.CONFIG),
                                              mode='w')
                 conf_file.write(yaml.dump(config))
                 conf_file.close()
@@ -284,9 +294,9 @@ class BaseTrial(object):
 
     def remove_config(self):
         config_path = path(self.out_path / self.hash_path)
-        if 'config.yml' in self.connection.listdir(config_path):
+        if Trial.CONFIG in self.connection.listdir(config_path):
             try:
-                self.connection.exec_command('rm %s' %(config_path / 'config.yml'))
+                self.connection.exec_command('rm %s' %(config_path / Trial.CONFIG))
             except:
                 print 'failed to remove config file'
 
@@ -300,7 +310,7 @@ class BaseTrial(object):
         and id whenever possible.
         """
         dir_ = self.out_path / self.hash_path
-        path_ = self.wrap_path / path('wrapper.py')
+        path_ = self.wrap_path / path(Trial.WRAPPER)
         command = "%s %s" %(path_, dir_)
         stdin, stdout, stderr = self.connection.exec_command(command)
         output = [x for x in stdout]
@@ -318,14 +328,26 @@ class BaseTrial(object):
         except:
             print  self.out_path / self.hash_path, ' not found'
             return None
+
         if '.finished' in files:
-            return 'finished'
+            return Trial.FINISHED
         elif '.error' in files:
-            return 'error'
+            return Trial.ERROR
         else:
-            print 'in progress? ', files
+            if self.verbose:
+                print 'in progress? ', files
             return None
 
+    def freeze(self):
+        return dict(
+            out_path=self.out_path,
+            exe_path=self.exe_path,
+            params=self.params,
+            time=self.time,
+            priority=self.priority,
+            verbose=self.verbose,
+            test=self.test,
+            server=self.get_server)
 
     def get_id(self):
         return self.id_
@@ -355,7 +377,7 @@ class CoalitionTrial(BaseTrial):
                          affinity=affin,
                          dir=self.exe_path.parent,
                          command='%s %s' %( self.wrap_path / 
-                                          path('wrapper.py'), dir_) )
+                                          path(Trial.WRAPPER), dir_) )
         # use id to get status and return (output, errors) for submission 
         return list(), list()
 
@@ -419,9 +441,9 @@ class SharcNetTrial(BaseTrial):
         command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
                    work_path,
                    SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
-                   test, self.time, str(dir_/path('log.txt')), 
+                   test, self.time, str(dir_/path(Trial.LOG)), 
                    self.python_path,
-                   str(self.wrap_path / path('wrapper.py')), str(dir_))
+                   str(self.wrap_path / path(Trial.WRAPPER)), str(dir_))
         if self.verbose:
             print 'Command = ', command
         stdin, stdout, stderr = self.connection.exec_command(command)

@@ -30,13 +30,13 @@ def run(result_path, parent, verbose=False):
 
     if not path_.exists:
         print 'Error: Path does not exist' 
-        return -1
+        return 1
     
     if path_.isdir:
         config_path = path_ / 'config.yml'
         if not config_path.exists():
             print config_path, ' does not exists'
-            return -1
+            return 1
 
     if path(parent / path('environments/env_vars.yml')).isfile():
         paths = yaml.load(open(parent / 'environments/env_vars.yml', 'r'))
@@ -53,7 +53,7 @@ def run(result_path, parent, verbose=False):
         log.write('yaml open')
         log.close()
         print "couldn't open config path ", config_path
-        return -1
+        return 1
 
     pkg = yaml.load(yam)
     
@@ -75,7 +75,6 @@ def run(result_path, parent, verbose=False):
     
     start_time = datetime.now()
 
-    ret = 0
     try:
         #subprocess.call(params, shell=True)
         command = ' '.join(params)
@@ -85,22 +84,23 @@ def run(result_path, parent, verbose=False):
                                 stderr=subprocess.PIPE, shell=True)
         if verbose:
             print p.communicate()
-        ret = p.close()[1]
+        p.wait()
+        p.close()
+        ret = p.returncode
     except:
-        ret = -1
+        ret = 1
 
     if ret != 0 and ret != None:
         log = open(path_ / '.error', 'w' )
         log.write('execute')
         log.close()
         return ret
-
-    end_time = datetime.now()
-    log = open(path_ / '.finished', 'w')
-    log.write("start time: %s\nend time: %s" %(start_time, end_time))
-    log.close()
-
-    return ret
+    else
+        end_time = datetime.now()
+        log = open(path_ / '.finished', 'w')
+        log.write("start time: %s\nend time: %s" %(start_time, end_time))
+        log.close()
+        return ret
 
 
 if __name__ == "__main__":
@@ -110,5 +110,5 @@ if __name__ == "__main__":
         exit(1)
     else:
         parent = path(sys.argv[0]).parent        
-        return run(sys.argv[1], parent)
+        run(sys.argv[1], parent)
 

@@ -4,13 +4,22 @@ from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial, SharcNetConne
 import shelve
 from path import path
 import yaml
+import time
 
+def wait(trial_file, exe_path, out_path, interval):
+    print 'Checking for updates every %d minutes' %interval
+    while _update(trial_file, exe_path, out_path)[0]:
+        time.sleep(interval * 60)
+        print '.',
+    print 'All Done.'
+
+#should save id as well so it can be killed later if needed
 
 def submit_all(trial_file, trial_list):
     trial = shelve.open(args.param_file, writeback=True)
  
     length = len(trial_list)
-    tenth = length / 10
+    tenth = max((length / 10), 1)
 
     print 'Creating config files and directories, this may take awhile...'
     for i, (T, p) in enumerate(trial_list):
@@ -53,6 +62,7 @@ def _parse_args():
     parser.add_argument('-rehash', action='store_true')
     parser.add_argument('-show', action='store_true')
     parser.add_argument('--test', action='store_true')
+    parser.add_argument('-wait', nargs=1, type=int)
     parser.add_argument('-state', nargs='+', type=str)
     parser.add_argument('-run_time', nargs=1,
                          dest='run_time', type=int)
@@ -62,19 +72,42 @@ def _parse_args():
                         dest='param_file', type=path)
     parser.add_argument('-script', nargs=1,
                         dest='script', type=path)
-    parser.add_argument('-output_dir', nargs=1,
+    parser.add_argument('-trial_name', nargs=1,
                          dest='trial_name', type=str )
-   
+
     args = parser.parse_args()
+
+    if args.wait:
+        args.wait = args.wait[0]
+
     if args.submit:
         args.run_time = args.run_time[0]
-        args.priority = args.priority[0]
+        if args.priority:   
+            args.priority = args.priority[0]
+        else:
+            args.priority = 1    
     args.param_file = args.param_file[0]
     if args.script:
         args.script = args.script[0]
+        #check for 'python' and .py
+    else:
+        trial = shelve.open(args.param_file)
+        if 'default_script' in trial:
+            args.script = path(trial['default_script'])
+            if 'default_results' in trial and not args.trial_name:
+                args.trial_name = trial['default_results']
+                print 'Assumming Default Results "%s"'%args.trial_name
+            trial.close()
+            print 'Assumming Default Script "%s"'%args.script
+        else:
+            print 'No script specified and no default in param_file.'
+            trial.close()
+            sys.exit(1)
     if args.trial_name:
         args.trial_name = args.trial_name[0]
-    
+    else:
+        args.trial_name = '${PYVPR_RESULTS}/' + path(args.param_file).namebase
+        print 'Results directory autoset to "%s"'%args.trial_name
     return args
 
 
@@ -98,30 +131,51 @@ def rehash(exe_path, out_path, server):
         except:
             print "couldn't open:", T.out_path / config
             continue
+
+        # This is a fix for unsorted parameters.
         data = yaml.load(cfile)
         sort_params = sorted(data[1])
         new_path = T.out_path / T._hash(data[0], sort_params)
         cfile.close()
-        if new_path != T.out_path / folder:
-            # rewrite the sorted parameters into the config file
-            cfile = T.connection.open(T.out_path / config, 'w')
-            cfile.write(yaml.dump(data))
-            cfile.close()
-            T.connection.rename(T.out_path / folder, new_path)
-        else:
+
+        if new_path == T.out_path / folder:
             print folder, ' already in right spot'
-
-
-def update(param_file, exe_path, out_path):
-    entry = shelve.open(param_file, writeback=True)
-    for k, v in entry.iteritems():
-        if v[Trial.STATE] != Trial.SUBMITTED:
-            print 'state ', v[Trial.STATE]
             continue
+        
+        # rewrite the sorted parameters into the config file
+        cfile = T.connection.open(T.out_path / config, 'w')
+        cfile.write(yaml.dump(data))
+        cfile.close()
+        T.connection.rename(T.out_path / folder, new_path)
+
+
+def _update(param_file, exe_path, out_path):
+    entry = shelve.open(param_file, writeback=True)
+    finished = 0
+    parameters = entry.iteritems()
+    num_trials = 0
+    errors = 0
+    running = 0
+    waiting = 0
+    for k, v in parameters:
+        if k == 'default_script' or k == 'default_results':
+            continue
+        num_trials += 1    
+        if v[Trial.STATE] != Trial.SUBMITTED:
+            if v[Trial.STATE] == Trial.FINISHED:
+                finished += 1            
+            elif v[Trial.STATE] == Trial.ERROR:
+                errors += 1
+            elif v[Trial.STATE] == Trial.WAITING:
+                waiting += 1           
+            else:
+                print v[Trial.STATE]
+            continue
+
         if v[Trial.QUEUE] == Trial.SHARCNET:
             if SharcNetTrial._default_connection == None:
                 C = SharcNetConnection(username='cfobel')
-                SharcNetTrial._default_connection = C 
+                SharcNetTrial._default_connection = C
             T = SharcNetTrial(params=eval(k), exe_path=exe_path, 
                                             out_path=out_path)
         elif v[Trial.QUEUE] == Trial.COALITION:
@@ -130,14 +184,31 @@ def update(param_file, exe_path, out_path):
         else:
             print 'Unknown Queue ', v[Trial.QUEUE] 
             continue
+
         new_state = T.get_state()
         if not new_state:
-            print 'no update'
+            running += 1
             continue
         else:
             v[Trial.STATE] = new_state
+            if new_state == Trial.FINISHED:
+                finished += 1
+            elif new_state == Trial.ERROR:
+                errors += 1
             entry[k] = v
     entry.close()
+    return (num_trials - finished, finished, num_trials, errors, running, waiting)
+
+
+def update(param_file, exe_path, out_path):
+    ret = _update(param_file, exe_path, out_path)
+    left, finished, num_trials, errors, running, waiting = ret
+    if not left:
+        print 'All %d are done'%finished
+    elif finished:
+        print '%d of %d have finished' %(finished, num_trials)
+    if errors:
+        print '%d have errors'%errors
 
 
 # Use this as a one time run.
@@ -158,6 +229,9 @@ def add_params(trial_file, params):
                                 Trial.QUEUE:None, 
                                 Trial.ID:None}
 
+def set_default_script(trial_file, script):
+    trial_file['default_script'] = script
+
 
 def run_coalition(trial_file, prog_path, result_path, run_time, priority,
                                                              verbose=False):
@@ -177,8 +251,11 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
     trial =  shelve.open(trial_file, writeback=True)
     trial_objs = list()
     parameters = trial.keys()
+
     already_submitted = 0
     for p in parameters:
+        if p == 'default_script' or p == 'default_results':
+            continue
         if trial[p][Trial.STATE] == Trial.WAITING:
             assert(trial[p][Trial.QUEUE] == None)
             assert(trial[p][Trial.ID] == None)
@@ -209,9 +286,10 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
         else:
             already_submitted += 1
     if already_submitted > 0:
-        print '%d Were already submitted; And Trials not created for them' %already_submitted
+        print '%d Were already submitted; And Trials were not created for them' %already_submitted
     print '%d Trials were created' %len(trial_objs)
-
+    trial['default_script'] = prog_path
+    trial['default_results'] = result_path
     trial.close()
     return trial_objs
 
@@ -249,6 +327,7 @@ if __name__ == "__main__":
         if len(args.state) > 1:
             value = args.state[1]
         show(args.param_file, args.state[0], value)
+
     elif args.submit:
         if args.coalition:
             submit_all(args.param_file, run_coalition(args.param_file,
@@ -262,8 +341,13 @@ if __name__ == "__main__":
                                 verbose=args.verbose))
         else:
             print 'No Server Specified; use -coalition or -sharcnet'
+
     elif args.update:
-        update(args.param_file, args.script, args.trial_name)
+        if args.wait:
+            wait(args.param_file, args.script, args.trial_name, args.wait)
+        else:        
+            update(args.param_file, args.script, args.trial_name)
+
     elif args.rehash:
         if args.coalition:
             rehash(args.script, args.trial_name, 'coalition')    
