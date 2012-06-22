@@ -26,17 +26,16 @@ help_string = \
 
 
 def run(result_path, parent, verbose=False):
-    path_ = path(result_path)
+    msg = ''
 
-    if not path_.exists:
-        print 'Error: Path does not exist' 
-        return 1
+    path_ = path(result_path)
+    if not path_.exists(): 
+        return (1, 'Error: Result Path does not exist.')
     
     if path_.isdir:
         config_path = path_ / 'config.yml'
         if not config_path.exists():
-            print config_path, ' does not exists'
-            return 1
+            return (1, '%s does not exists'%config_path)
 
     if path(parent / path('environments/env_vars.yml')).isfile():
         paths = yaml.load(open(parent / 'environments/env_vars.yml', 'r'))
@@ -48,20 +47,17 @@ def run(result_path, parent, verbose=False):
                 
     try:
         yam = open(config_path)
-    except:
-        log = open(path_ / '.error', 'w')
-        log.write('yaml open')
-        log.close()
+    except Exception, e:
         print "couldn't open config path ", config_path
-        return 1
+        return (1, 'yaml open config: %s' %e.args)
 
     pkg = yaml.load(yam)
-    
     # TODO allow for list arguments as well not in tuple form?.
     params = [str(pkg[0])] # add executable name ./program.py
     if verbose:
-        print 'Wrapper Executable and paramters' , pkg 
-    for k, v in dict(pkg[1]):
+        print 'Wrapper Executable and paramters', pkg
+
+    for k, v in dict(pkg[1]).iteritems():
         if k and v is not None:
             params.append('-%s' %k)
             params.append('%s' %v)
@@ -72,8 +68,6 @@ def run(result_path, parent, verbose=False):
     # all programs must accept '-o output dir'
     params.append('-o')
     params.append('%s' %result_path)
-    
-    start_time = datetime.now()
 
     try:
         #subprocess.call(params, shell=True)
@@ -82,24 +76,14 @@ def run(result_path, parent, verbose=False):
             print 'In Wrapper Command = ', command
         p = subprocess.Popen(command, stdout=subprocess.PIPE, 
                                 stderr=subprocess.PIPE, shell=True)
-        if verbose:
-            print p.communicate()
+        msg += p.communicate()
         ret = p.wait()
         p.close()
-    except:
+    except Exception, e:
         ret = 1
+        msg += str(e.args)
 
-    if ret != 0 and ret != None:
-        log = open(path_ / '.error', 'w' )
-        log.write('Error Code: %d'%ret)
-        log.close()
-        return ret
-    else:
-        end_time = datetime.now()
-        log = open(path_ / '.finished', 'w')
-        log.write("start time: %s\nend time: %s" %(start_time, end_time))
-        log.close()
-        return ret
+    return (ret, msg)
 
 
 if __name__ == "__main__":
@@ -108,6 +92,19 @@ if __name__ == "__main__":
         print help_string
         exit(1)
     else:
-        parent = path(sys.argv[0]).parent        
-        run(sys.argv[1], parent)
+        start_time = datetime.now()
+        parent = path(sys.argv[0]).parent
+        path_ = path(sys.argv[1])     
+        ret = run(sys.argv[1], parent)
+        if ret[0] != 0:        
+            log = open(path_ / '.error', 'w' )
+            log.write('Error Code: %d'%ret[0])
+        else:
+            end_time = datetime.now()
+            log = open(path_ / '.finished', 'w' )
+            log.write("start time: %s\nend time: %s" %(start_time, end_time))
+
+        log.write(ret[1])
+        log.close()
+            
 

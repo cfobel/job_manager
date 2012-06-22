@@ -183,6 +183,9 @@ def _update(param_file, exe_path, out_path):
         elif v[Trial.QUEUE] == Trial.COALITION:
             T = CoalitionTrial(params=eval(k), exe_path=exe_path, 
                                                 out_path=out_path)
+        elif v[Trial.QUEUE] == Trial.LOCAL:
+            T = BaseTrial(params=eval(k), exe_path=exe_path, 
+                                          out_path=out_path)
         else:
             print 'Unknown Queue ', v[Trial.QUEUE] 
             continue

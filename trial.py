@@ -78,6 +78,8 @@ class Connection(object):
         
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
+        self.ssh.set_missing_host_key_policy(
+            paramiko.AutoAddPolicy())
             
         while True:
             try:
@@ -85,8 +87,8 @@ class Connection(object):
                                 username=username,
                                 password=password)
                 break
-            except:
-                print 'Connection failed'
+            except Exception, e:
+                print 'Connection failed: ', e.args
                 password = getpass.getpass(prompt='%s password:' %username)
                 if not password:
                     sys.exit(1)
@@ -206,6 +208,8 @@ class BaseTrial(object):
         if isinstance(params, dict):
             params = sorted(list(params.iteritems()))
         self.params = sorted(params)
+        if verbose:
+            print self.params
         sha1 = hashlib.sha1(str((self.exe_path, self.params)))
         self.hash_path = path(sha1.hexdigest())
         env_file = path('./environments') / path(env)
