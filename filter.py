@@ -5,12 +5,13 @@ import shelve
 from path import path
 import yaml
 import time
+import sys
 
 def wait(trial_file, exe_path, out_path, interval):
     print 'Checking for updates every %d minutes' %interval
     while _update(trial_file, exe_path, out_path)[0]:
+        print '.',        
         time.sleep(interval * 60)
-        print '.',
     print 'All Done.'
 
 #should save id as well so it can be killed later if needed
@@ -87,6 +88,8 @@ def _parse_args():
         else:
             args.priority = 1    
     args.param_file = args.param_file[0]
+    if args.trial_name:
+        args.trial_name = args.trial_name[0]
     if args.script:
         args.script = args.script[0]
         #check for 'python' and .py
@@ -103,9 +106,8 @@ def _parse_args():
             print 'No script specified and no default in param_file.'
             trial.close()
             sys.exit(1)
-    if args.trial_name:
-        args.trial_name = args.trial_name[0]
-    else:
+    
+    if not args.trial_name:
         args.trial_name = '${PYVPR_RESULTS}/' + path(args.param_file).namebase
         print 'Results directory autoset to "%s"'%args.trial_name
     return args
@@ -235,18 +237,26 @@ def set_default_script(trial_file, script):
 
 def run_coalition(trial_file, prog_path, result_path, run_time, priority,
                                                              verbose=False):
-    return run_parameters(trial_file, lambda x: False, lambda x: True, 
+    return run_parameters(trial_file, lambda x: False, lambda x: True, lambda x: False, 
                 prog_path, result_path, run_time, priority, verbose=verbose)
 
 
 def run_sharcnet(trial_file, prog_path, result_path, run_time, priority, 
                                                             verbose=False):
-    return run_parameters(trial_file, lambda x: True, lambda x: False, 
+    return run_parameters(trial_file, lambda x: True, lambda x: False, lambda x: False, 
+            prog_path, result_path, run_time, priority, verbose=verbose)
+
+def run_local(trial_file, prog_path, result_path, run_time, priority, 
+                                                            verbose=False):
+    return run_parameters(trial_file, lambda x: False, lambda x: False, lambda x: True, 
             prog_path, result_path, run_time, priority, verbose=verbose)
 
 
-def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
-                    result_path, run_time, priority, verbose=False, test=False):
+def run_parameters(trial_file, sharc_filter=lambda x: False,
+                                coalition_filter=lambda x: False,
+                                local_filter=lambda x: False,
+                                 prog_path='', result_path='', run_time=10080,
+                                priority=1, verbose=False, test=False):
 
     trial =  shelve.open(trial_file, writeback=True)
     trial_objs = list()
@@ -274,6 +284,14 @@ def run_parameters(trial_file, sharc_filter, coalition_filter, prog_path,
 
             elif coalition_filter(p):
                 T = CoalitionTrial(out_path=result_path, 
+                                    exe_path=prog_path, 
+                                    params=eval(p), 
+                                    time=run_time, 
+                                    priority=priority,
+                                    verbose=verbose,
+                                    test=test)
+            elif local_filter(p):
+                T = BaseTrial(out_path=result_path, 
                                     exe_path=prog_path, 
                                     params=eval(p), 
                                     time=run_time, 
@@ -336,6 +354,11 @@ if __name__ == "__main__":
                                 verbose=args.verbose))
         elif args.sharcnet: 
             submit_all(args.param_file, run_sharcnet(args.param_file, 
+                                args.script, args.trial_name, 
+                                args.run_time, args.priority,
+                                verbose=args.verbose))
+        elif args.local: 
+            submit_all(args.param_file, run_local(args.param_file, 
                                 args.script, args.trial_name, 
                                 args.run_time, args.priority,
                                 verbose=args.verbose))

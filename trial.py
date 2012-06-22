@@ -12,6 +12,7 @@ import re
 from resolve_vars import resolve, resolve_env_vars
 import sys
 
+
 #TODO
 """
     Add __repr__ or state method so that a trial
@@ -51,7 +52,7 @@ class Trial:
 
 
 class Connection(object):
-    def __init__(self, hostname='localhost', username=None, password=None, 
+    def __init__(self, hostname='127.0.0.1', username=None, password=None, 
                 config_path='~/.ssh/config', verbose=False):
         
         if not hostname:
@@ -65,7 +66,8 @@ class Connection(object):
                 if config.lookup(hostname):
                    host_config = config.lookup(hostname)
                    username = host_config['user']
-                else: print 'Unknown host ', hostname
+                else:
+                    print 'Unknown host ', hostname
             else: print 'config file path wrong'
         
         self.verbose = verbose        

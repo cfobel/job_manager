@@ -84,18 +84,17 @@ def run(result_path, parent, verbose=False):
                                 stderr=subprocess.PIPE, shell=True)
         if verbose:
             print p.communicate()
-        p.wait()
+        ret = p.wait()
         p.close()
-        ret = p.returncode
     except:
         ret = 1
 
     if ret != 0 and ret != None:
         log = open(path_ / '.error', 'w' )
-        log.write('execute')
+        log.write('Error Code: %d'%ret)
         log.close()
         return ret
-    else
+    else:
         end_time = datetime.now()
         log = open(path_ / '.finished', 'w')
         log.write("start time: %s\nend time: %s" %(start_time, end_time))
