@@ -35,7 +35,7 @@ def set_environment(verbose=False):
     else:    
         envs = yaml.load(env_file.open())
         for k, v in envs.iteritems():
-            os.environ[k] = v
+            os.environ[k] = ':'.join(v)
 
 def run(result_path, parent, verbose=False):
     msg = ''
