@@ -28,14 +28,14 @@ help_string = \
 def set_environment(verbose=False):
     hostname = platform.node()
     env_file = path(__file__).parent.joinpath('environments').joinpath('env_vars.yml')
-    if not env.exists():
+    if not env_file.exists():
         if verbose:
             print 'env_vars file not found.'
         return
     else:    
         envs = yaml.load(env_file.open())
-        for k, v in env.iteritems():
-            os.eniron[k] = v
+        for k, v in envs.iteritems():
+            os.environ[k] = v
 
 def run(result_path, parent, verbose=False):
     msg = ''
