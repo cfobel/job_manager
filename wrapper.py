@@ -7,7 +7,8 @@ import yaml
 import subprocess
 import os
 from resolve_vars import resolve_env_vars
-
+import platform
+import re
 
 help_string = \
 """
@@ -24,6 +25,17 @@ help_string = \
     usage:  wrapper <path to  parent of config.yml>
 """
 
+def set_environment(verbose=False):
+    hostname = platform.node()
+    env_file = path(__file__).parent.joinpath('environments').joinpath('env_vars.yml')
+    if not env.exists():
+        if verbose:
+            print 'env_vars file not found.'
+        return
+    else:    
+        envs = yaml.load(env_file.open())
+        for k, v in env.iteritems():
+            os.eniron[k] = v
 
 def run(result_path, parent, verbose=False):
     msg = ''
@@ -90,23 +102,25 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print help_string
         exit(1)
+    if len(sys.argv) == 3 and sys.argv[2] == '-verbose':
+        verbose = True
     else:
-        if len(sys.argv) == 3 and sys.argv[2] == '-verbose':
-            verbose = True
-        else:
-            verbose = False
-        start_time = datetime.now()
-        parent = path(sys.argv[0]).parent
-        path_ = path(sys.argv[1])
-        ret = run(sys.argv[1], parent, verbose=verbose)
-        if ret[0] != 0:        
-            log = open(path_ / '.error', 'w' )
-            log.write('Error Code: %d\n'%ret[0])
-        else:
-            end_time = datetime.now()
-            log = open(path_ / '.finished', 'w' )
-            log.write("start time: %s\nend time: %s" %(start_time, end_time))
+        verbose = False
 
-        log.write(ret[1])
-        log.close()  
+    set_environment(verbose)        
+    start_time = datetime.now()
+    parent = path(sys.argv[0]).parent
+    path_ = path(sys.argv[1])
+    ret = run(sys.argv[1], parent, verbose=verbose)
+
+    if ret[0] != 0:        
+        log = open(path_ / '.error', 'w' )
+        log.write('Error Code: %d\n'%ret[0])
+    else:
+        end_time = datetime.now()
+        log = open(path_ / '.finished', 'w' )
+        log.write("start time: %s\nend time: %s" %(start_time, end_time))
+
+    log.write(ret[1])
+    log.close()  
 
