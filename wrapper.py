@@ -40,11 +40,11 @@ def run(result_path, parent, verbose=False):
     if path(parent / path('environments/env_vars.yml')).isfile():
         paths = yaml.load(open(parent / 'environments/env_vars.yml', 'r'))
         resolve_env_vars(paths)
-        for k , v in paths.iteritems():
+        for k, v in paths.iteritems():
             os.environ[k] = ':'.join(v)
     elif verbose:
         print 'no path variable file found.'
-                
+
     try:
         yam = open(config_path)
     except Exception, e:
@@ -76,35 +76,37 @@ def run(result_path, parent, verbose=False):
             print 'In Wrapper Command = ', command
         p = subprocess.Popen(command, stdout=subprocess.PIPE, 
                                 stderr=subprocess.PIPE, shell=True)
-        msg += p.communicate()
+        p.communicate()
         ret = p.wait()
-        p.close()
     except Exception, e:
         ret = 1
-        msg += str(e.args)
+        msg = str(e.args)
 
     return (ret, msg)
 
 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         print help_string
         exit(1)
     else:
+        if len(sys.argv) == 3 and sys.argv[2] == '-verbose':
+            verbose = True
+        else:
+            verbose = False
         start_time = datetime.now()
         parent = path(sys.argv[0]).parent
-        path_ = path(sys.argv[1])     
-        ret = run(sys.argv[1], parent)
+        path_ = path(sys.argv[1])
+        ret = run(sys.argv[1], parent, verbose=verbose)
         if ret[0] != 0:        
             log = open(path_ / '.error', 'w' )
-            log.write('Error Code: %d'%ret[0])
+            log.write('Error Code: %d\n'%ret[0])
         else:
             end_time = datetime.now()
             log = open(path_ / '.finished', 'w' )
             log.write("start time: %s\nend time: %s" %(start_time, end_time))
 
         log.write(ret[1])
-        log.close()
-            
+        log.close()  
 
