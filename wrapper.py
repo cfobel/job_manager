@@ -36,6 +36,9 @@ def set_environment(verbose=False):
         envs = yaml.load(env_file.open())
         for k, v in envs.iteritems():
             os.environ[k] = ':'.join(v)
+            #os.putenv(k, ':'.join(v))            
+            if verbose:
+                print 'ENV:: ', k, ' = ', ':'.join(v)
 
 def run(result_path, parent, verbose=False):
     msg = ''
@@ -90,6 +93,8 @@ def run(result_path, parent, verbose=False):
                                 stderr=subprocess.PIPE, shell=True)
         p.communicate()
         ret = p.wait()
+
+        #ret = os.system(command)
     except Exception, e:
         ret = 1
         msg = str(e.args)
