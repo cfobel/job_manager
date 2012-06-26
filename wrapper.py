@@ -32,13 +32,19 @@ def set_environment(verbose=False):
         if verbose:
             print 'env_vars file not found.'
         return
-    else:    
+    else: 
         envs = yaml.load(env_file.open())
+        resolve_env_vars(envs)
         for k, v in envs.iteritems():
-            os.environ[k] = ':'.join(v)
-            #os.putenv(k, ':'.join(v))            
+            original_values = os.environ.get(k, '').split(':')
+            if v:
+                values = v
+            else:
+                values = []
+            combined_values = [v for v in original_values + values if v]
+            os.environ[k] = ':'.join(combined_values)
             if verbose:
-                print 'ENV:: ', k, ' = ', ':'.join(v)
+                print 'ENV:: ', k, ' = ', os.environ[k]
 
 def run(result_path, parent, verbose=False):
     msg = ''
@@ -51,14 +57,6 @@ def run(result_path, parent, verbose=False):
         config_path = path_ / 'config.yml'
         if not config_path.exists():
             return (1, '%s does not exists'%config_path)
-
-    if path(parent / path('environments/env_vars.yml')).isfile():
-        paths = yaml.load(open(parent / 'environments/env_vars.yml', 'r'))
-        resolve_env_vars(paths)
-        for k, v in paths.iteritems():
-            os.environ[k] = ':'.join(v)
-    elif verbose:
-        print 'no path variable file found.'
 
     try:
         yam = open(config_path)
@@ -90,14 +88,14 @@ def run(result_path, parent, verbose=False):
         if verbose:
             print 'In Wrapper Command = ', command
         p = subprocess.Popen(command, stdout=subprocess.PIPE, 
-                                stderr=subprocess.PIPE, shell=True)
-        p.communicate()
+                                stderr=subprocess.PIPE, shell=True, env=os.environ)
+        stdout, stderr = p.communicate()
+        msg += str(('stdout:', stdout))
+        msg += str(('stderr:', stderr))
         ret = p.wait()
-
-        #ret = os.system(command)
     except Exception, e:
         ret = 1
-        msg = str(e.args)
+        msg += str(e.args)
 
     return (ret, msg)
 
