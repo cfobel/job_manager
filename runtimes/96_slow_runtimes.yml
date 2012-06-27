@@ -4,6 +4,14 @@ apex2: {cost: 273.217254639, inner_num: 10.0, netlist: apex2, run_count: 124.0, 
   time_s: 65.712162}
 apex4: {cost: 180.370895386, inner_num: 10.0, netlist: apex4, run_count: 117.0, runtime: 34.451788,
   time_s: 34.451788}
+b17_1_new_mapped_1x4lut: {cost: 17955.1328125, inner_num: 10.0, netlist: b17_1_new_mapped-1x4lut,
+  run_count: 163.0, runtime: 75537.799046, time_s: 75537.799046}
+b18_1_new_mapped_1x4lut: {cost: 20844.15625, inner_num: 10.0, netlist: b18_1_new_mapped-1x4lut,
+  run_count: 163.0, runtime: 122672.615585, time_s: 122672.615585}
+b18_new_mapped_1x4lut: {cost: 20859.9316406, inner_num: 10.0, netlist: b18_new_mapped-1x4lut,
+  run_count: 163.0, runtime: 119032.758188, time_s: 119032.758188}
+b19_1_new_mapped_1x4lut: {cost: 40995.7265625, inner_num: 10.0, netlist: b19_1_new_mapped-1x4lut,
+  run_count: 172.0, runtime: 310250.670143, time_s: 310250.670143}
 bigkey: {cost: 175.72857666, inner_num: 10.0, netlist: bigkey, run_count: 127.0, runtime: 64.903729,
   time_s: 64.903729}
 clma: {cost: 1393.50378418, inner_num: 10.0, netlist: clma, run_count: 137.0, runtime: 786.20423,
@@ -22,8 +30,12 @@ ex5p: {cost: 162.09463501, inner_num: 10.0, netlist: ex5p, run_count: 114.0, run
   time_s: 29.087636}
 frisc: {cost: 519.536193848, inner_num: 10.0, netlist: frisc, run_count: 124.0, runtime: 172.702475,
   time_s: 172.702475}
+leon3mp_low_fanout_latch_1x4lut: {cost: 14775.1796875, inner_num: 10.0, netlist: leon3mp_low_fanout_latch-1x4lut,
+  run_count: 174.0, runtime: 152549.964178, time_s: 152549.964178}
 misex3: {cost: 189.4662323, inner_num: 10.0, netlist: misex3, run_count: 120.0, runtime: 40.56037,
   time_s: 40.56037}
+netcard_low_fanout_latch_1x4lut: {cost: 13692.2685547, inner_num: 10.0, netlist: netcard_low_fanout_latch-1x4lut,
+  run_count: 177.0, runtime: 152820.200503, time_s: 152820.200503}
 pdc: {cost: 879.96862793, inner_num: 10.0, netlist: pdc, run_count: 127.0, runtime: 278.458655,
   time_s: 278.458655}
 s298: {cost: 204.322906494, inner_num: 10.0, netlist: s298, run_count: 125.0, runtime: 58.448125,
@@ -39,3 +51,5 @@ spla: {cost: 595.509765625, inner_num: 10.0, netlist: spla, run_count: 128.0, ru
   time_s: 188.356813}
 tseng: {cost: 93.1881790161, inner_num: 10.0, netlist: tseng, run_count: 119.0, runtime: 29.859512,
   time_s: 29.859512}
+uoft_raytracer_low_fanout_latch_1x4lut: {cost: 14944.2607422, inner_num: 10.0, netlist: uoft_raytracer_low_fanout_latch-1x4lut,
+  run_count: 171.0, runtime: 112452.850298, time_s: 112452.850298}

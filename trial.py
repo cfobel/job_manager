@@ -11,6 +11,7 @@ import getpass
 import re
 from resolve_vars import resolve, resolve_env_vars
 import sys
+import os
 
 
 #TODO
@@ -78,8 +79,8 @@ class Connection(object):
         
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
-        self.ssh.set_missing_host_key_policy(
-            paramiko.AutoAddPolicy())
+        #self.ssh.set_missing_host_key_policy(
+        #    paramiko.AutoAddPolicy())
             
         while True:
             try:
@@ -89,7 +90,7 @@ class Connection(object):
                 break
             except Exception, e:
                 print 'Connection failed: ', e.args
-                password = getpass.getpass(prompt='%s password:' %username)
+                password = getpass.getpass(prompt='%s@%s password:' %(username, hostname))
                 if not password:
                     sys.exit(1)
         
@@ -142,7 +143,7 @@ class CoalitionConnection(Connection):
 
     def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, 
                  username='coalition', **kwargs ):
-
+        #os.system('ssh -Nf -L%d:localhost:%d %s@%s'%(port, port, username, hostname))
         self.control = CoalitionControl("http://localhost:%d" %port)
         Connection.__init__(self, hostname=hostname, 
                             username=username, **kwargs)
@@ -183,8 +184,8 @@ class BaseTrial(object):
     def connection(self, value):
         self._connection = value
 
-
-    def _hash(self, exe_path, params):
+    @classmethod
+    def _hash(cls, exe_path, params):
         p = sorted( params )
         sha1 = hashlib.sha1(str((exe_path, p)))
         return path(sha1.hexdigest())
@@ -318,7 +319,7 @@ class BaseTrial(object):
         dir_ = self.out_path / self.hash_path
         path_ = self.wrap_path / path(Trial.WRAPPER)
         command = "%s %s" %(path_, dir_)
-        stdin, stdout, stderr = self.connection.exec_command(command)
+        stdin, stdout, stderr = self.connection.exec_command('( ' + command + ' &)')
         output = [x for x in stdout]
         errors = [y for y in stderr]
         return output, errors

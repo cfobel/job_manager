@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial, SharcNetConnection
+from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial, SharcNetConnection, CoalitionConnection, Connection
 import shelve
 from path import path
 import yaml
@@ -21,13 +21,16 @@ def submit_all(trial_file, trial_list):
  
     length = len(trial_list)
     tenth = max((length / 10), 1)
-
-    print 'Creating config files and directories, this may take awhile...'
+    if length == 0:
+        print 'No trials.'
+        return
+    print 'Creating configuration files and directories, this may take awhile.'
     for i, (T, p) in enumerate(trial_list):
         T.make_output_dir()
         T.write_config()
         if i % tenth == 0:
-            print '%d%% complete...' %((100.0 * i) / length) 
+            print '%d%%..'%((100. * i) / length), 
+    print ''
 
     print 'Submitting jobs...'
     for i, (T, p) in enumerate(trial_list):
@@ -36,7 +39,8 @@ def submit_all(trial_file, trial_list):
         trial[p][Trial.STATE] = Trial.SUBMITTED
         trial[p][Trial.QUEUE] = T.get_server()
         if i % tenth == 0:
-            print '%d%% complete...' %((100.0 * i) / length) 
+            print '%d%%..'%((100. * i) / length), 
+    print ''
 
     print '%d jobs submitted!' %length
     trial.close()
@@ -88,20 +92,22 @@ def _parse_args():
         else:
             args.priority = 1    
     args.param_file = args.param_file[0]
+
+    trial = shelve.open(args.param_file)
     if args.trial_name:
         args.trial_name = args.trial_name[0]
     if args.script:
         args.script = args.script[0]
         #check for 'python' and .py
     else:
-        trial = shelve.open(args.param_file)
         if 'default_script' in trial:
             args.script = path(trial['default_script'])
             if 'default_results' in trial and not args.trial_name:
                 args.trial_name = trial['default_results']
-                print 'Assumming Default Results "%s"'%args.trial_name
-            trial.close()
-            print 'Assumming Default Script "%s"'%args.script
+                if args.verbose:
+                    print 'Assumming Default Results "%s"'%args.trial_name
+            if args.verbose:
+                print 'Assumming Default Script "%s"'%args.script
         else:
             print 'No script specified and no default in param_file.'
             trial.close()
@@ -109,7 +115,12 @@ def _parse_args():
     
     if not args.trial_name:
         args.trial_name = '${PYVPR_RESULTS}/' + path(args.param_file).namebase
-        print 'Results directory autoset to "%s"'%args.trial_name
+        if args.verbose:        
+            print 'Results directory autoset to "%s"'%args.trial_name
+
+    trial['default_results'] = args.trial_name
+    trial['default_script'] = args.script
+    trial.close()
     return args
 
 
@@ -181,9 +192,15 @@ def _update(param_file, exe_path, out_path):
             T = SharcNetTrial(params=eval(k), exe_path=exe_path, 
                                             out_path=out_path)
         elif v[Trial.QUEUE] == Trial.COALITION:
+            if CoalitionTrial._default_connection == None:
+                C = CoalitionConnection()
+                CoalitionTrial._default_connection = C
             T = CoalitionTrial(params=eval(k), exe_path=exe_path, 
                                                 out_path=out_path)
         elif v[Trial.QUEUE] == Trial.LOCAL:
+            if BaseTrial._default_connection == None:
+                C = Connection()
+                BaseTrial._default_connection = C
             T = BaseTrial(params=eval(k), exe_path=exe_path, 
                                           out_path=out_path)
         else:
@@ -236,6 +253,9 @@ def add_params(trial_file, params):
 
 def set_default_script(trial_file, script):
     trial_file['default_script'] = script
+
+def set_default_result_dir(trial_file, dir_):
+    trial_file['default_results'] = dir_
 
 
 def run_coalition(trial_file, prog_path, result_path, run_time, priority,
@@ -328,15 +348,32 @@ def test_sharcnet(trial_file, script='python '+Trial.EXPERIMENTS/'test.py',
                                 script, output, 3, 1, 
                                 verbose=True, test=True))
 
+def reset_errors(param_file):
+	entry = shelve.open(param_file)
+	for k, v in entry.iteritems():
+		if k == 'default_results' or k == 'default_script':
+			continue
+		if v[Trial.STATE] == Trial.ERROR:
+			v[Trial.QUEUE] = None
+			v[Trial.STATE] = Trial.WAITING
+	entry.close()
+
 
 def show(param_file, state_var, value):
-    entry = shelve.open(param_file)
-    for k, v in entry.iteritems():
-        if value == None:
-            print v[str(state_var)]
-        elif str(v[str(state_var)]) == str(value):
-            print k, v
-    entry.close()
+	entry = shelve.open(param_file)
+	script = entry['default_script']
+	results = entry['default_results']
+	for k, v in entry.iteritems():
+		if k == 'default_results' or k == 'default_script':
+			continue
+		if value == None:
+			print v[str(state_var)],
+			print 'Parameters:', dict(eval(k))
+			print 'Results directory:', path(results)/BaseTrial._hash(script, eval(k))
+			print ''
+		elif str(v[str(state_var)]) == str(value):
+			print k, v
+	entry.close()
 
 
 if __name__ == "__main__":
