@@ -41,7 +41,7 @@ def set_environment(verbose=False):
                 values = v
             else:
                 values = []
-            combined_values = [v for v in original_values + values if v]
+            combined_values = [v for v in values + original_values if v]
             os.environ[k] = ':'.join(combined_values)
             if verbose:
                 print 'ENV:: ', k, ' = ', os.environ[k]
