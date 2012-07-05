@@ -7,6 +7,10 @@ import yaml
 import time
 import sys
 
+def count(trial_file):
+    return len([k for k, v in shelve.open(trial_file).items() if k not in ['default_script', 'default_results']])
+
+
 def wait(trial_file, exe_path, out_path, interval):
     print 'Checking for updates every %d minutes' %interval
     while _update(trial_file, exe_path, out_path)[0]:
@@ -14,8 +18,8 @@ def wait(trial_file, exe_path, out_path, interval):
         time.sleep(interval * 60)
     print 'All Done.'
 
-#should save id as well so it can be killed later if needed
 
+# Should save id as well so it can be killed later if needed
 def submit_all(trial_file, trial_list):
     trial = shelve.open(args.param_file, writeback=True)
  
@@ -29,7 +33,8 @@ def submit_all(trial_file, trial_list):
         T.make_output_dir()
         T.write_config()
         if i % tenth == 0:
-            print '%d%%..'%((100. * i) / length), 
+            print '%d%%..'%((100. * i) / length),
+            sys.stdout.flush()
     print ''
 
     print 'Submitting jobs...'
@@ -39,7 +44,8 @@ def submit_all(trial_file, trial_list):
         trial[p][Trial.STATE] = Trial.SUBMITTED
         trial[p][Trial.QUEUE] = T.get_server()
         if i % tenth == 0:
-            print '%d%%..'%((100. * i) / length), 
+            print '%d%%..'%((100. * i) / length),
+            sys.stdout.flush() 
     print ''
 
     print '%d jobs submitted!' %length
@@ -66,7 +72,9 @@ def _parse_args():
     parser.add_argument('-update', action='store_true')
     parser.add_argument('-rehash', action='store_true')
     parser.add_argument('-show', action='store_true')
-    parser.add_argument('--test', action='store_true')
+    parser.add_argument('-test', action='store_true')
+    parser.add_argument('-fake_submit', action='store_true')
+    parser.add_argument('-reset_errors', action='store_true')
     parser.add_argument('-wait', nargs=1, type=int)
     parser.add_argument('-state', nargs='+', type=str)
     parser.add_argument('-run_time', nargs=1,
@@ -79,9 +87,9 @@ def _parse_args():
                         dest='script', type=path)
     parser.add_argument('-trial_name', nargs=1,
                          dest='trial_name', type=str )
+    parser.add_argument('-count', action='store_true')
 
     args = parser.parse_args()
-
     if args.wait:
         args.wait = args.wait[0]
 
@@ -170,6 +178,7 @@ def _update(param_file, exe_path, out_path):
     errors = 0
     running = 0
     waiting = 0
+    
     for k, v in parameters:
         if k == 'default_script' or k == 'default_results':
             continue
@@ -226,12 +235,15 @@ def update(param_file, exe_path, out_path):
     ret = _update(param_file, exe_path, out_path)
     left, finished, num_trials, errors, running, waiting = ret
     if not left:
-        print 'All %d are done'%finished
+        print 'All %d are done' % finished
     elif finished:
-        print '%d of %d have finished' %(finished, num_trials)
+        print '%d of %d have finished' % (finished, num_trials)
     if errors:
-        print '%d have errors'%errors
-
+        print '%d have errors' % errors
+    if running:
+        print '%d are running.' % running
+    if waiting:
+        print '%d are waiting.' % waiting
 
 # Use this as a one time run.
 def test(x):
@@ -348,14 +360,26 @@ def test_sharcnet(trial_file, script='python '+Trial.EXPERIMENTS/'test.py',
                                 script, output, 3, 1, 
                                 verbose=True, test=True))
 
-def reset_errors(param_file):
+def set_as_submitted(param_file, queue):
 	entry = shelve.open(param_file)
 	for k, v in entry.iteritems():
 		if k == 'default_results' or k == 'default_script':
 			continue
-		if v[Trial.STATE] == Trial.ERROR:
-			v[Trial.QUEUE] = None
-			v[Trial.STATE] = Trial.WAITING
+		v[Trial.QUEUE] = queue
+		v[Trial.STATE] = Trial.SUBMITTED
+	entry.close()
+
+
+def reset_errors(param_file):
+	entry = shelve.open(param_file, writeback=True)
+	for k, v in entry.iteritems():
+		if k == 'default_results' or k == 'default_script':
+			continue
+        if v[Trial.STATE] == Trial.ERROR:
+            entry[k][Trial.QUEUE] = None
+            entry[k][Trial.STATE] = Trial.WAITING
+            entry[k][Trial.ID] = None
+            print 'you must delete the result folders that errored.'
 	entry.close()
 
 
@@ -417,7 +441,21 @@ if __name__ == "__main__":
         elif args.sharcnet:
             rehash(args.script, args.trial_name, 'sharcnet')
         else:
-            print 'No Sever Specified; use -coalition ot -sharcnet'
+            print 'No Sever Specified; use -coalition or -sharcnet'
+    elif args.fake_submit:
+		if args.coalition:
+			queue = Trial.COALITION
+		elif args.sharcnet:
+			queue = Trial.SHARCNET
+		elif args.localhost:
+			queue = Trial.LOCAL
+		else:
+			print 'No Server Specified; use -coalition or -sharcnet'
+		set_as_submitted(args.param_file, queue)
+    elif args.reset_errors:
+			reset_errors(args.param_file)
+    elif args.count:
+        print count(args.param_file)
     elif args.test:
         if args.coalition:
             test_coalition(args.param_file)
