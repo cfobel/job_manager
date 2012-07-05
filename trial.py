@@ -53,7 +53,7 @@ class Trial:
 
 
 class Connection(object):
-    def __init__(self, hostname='127.0.0.1', username=None, password=None, 
+    def __init__(self, hostname='localhost', username=None, password=None, 
                 config_path='~/.ssh/config', verbose=False):
         
         if not hostname:
@@ -138,6 +138,41 @@ class Connection(object):
         return self.sftp.rename( str(old), str(new))
 
 
+class DirectConnection(Connection):
+
+    def __init__(self):
+        pass
+
+    def rename(self, old, new):
+        os.rename(path(old).expand(), path(new).expand())
+
+    def get_username(self):
+        return os.getenv('LOGNAME')
+
+    def _open(self, file_, mode='r'):
+        return open(path(file_).expand(), mode)
+
+    def exec_command(self, command):
+        f = os.popen(command)
+        output = [o for o in f]
+        f.close()
+        return output
+
+    def listdir(self, dir_):
+        f = os.popen('ls -a %s' % path(dir_).expand())
+        list_ = [l.strip() for l in f] 
+        f.close()
+        return list_
+
+    def mkdir(self, dir_):
+        os.mkdir(path(dir_).expand())
+
+    def rmdir(self, dir_):
+        os.rmdir(path(dir_).expand())
+
+DirectConnection.open = DirectConnection._open
+
+
 class CoalitionConnection(Connection):
 
 
@@ -167,7 +202,7 @@ class BaseTrial(object):
         return Trial.LOCAL
 
     def _get_default_connection(self):
-        return Connection(verbose=self.verbose)
+        return DirectConnection()
 
     @property
     def connection(self):
@@ -247,28 +282,30 @@ class BaseTrial(object):
             parent = self.out_path.parent 
             print 'now checking for ', self.out_path, ' in ', parent
 
-        if self.out_path.namebase not in self.connection.listdir(parent):
+        #if self.out_path.namebase not in self.connection.listdir(parent):
+        #    if self.verbose:
+        #        print '%s not int %s!!!' %(self.out_path.namebase, parent)
+        #        print 'parent to result dir = ', self.connection.listdir(parent)
+        try:
+            self.connection.mkdir(self.out_path)
+            if self.verbose: 
+                print 'created result directory'
+        except Exception as e:
             if self.verbose:
-                print '%s not int %s!!!' %(self.out_path.namebase, parent)
-                print 'parent to result dir = ', self.connection.listdir(parent)
-            try:
-                self.connection.mkdir(self.out_path)
-                if self.verbose: 
-                    print 'created result directory'
-            except:
-                print 'failed to make ', self.out_path
-                sys.exit(1)
-        elif self.verbose: 
-            print self.out_path, ' exists'
+                print 'failed to make ', self.out_path, e.args
+                #sys.exit(1)
+        #elif self.verbose: 
+        #    print self.out_path, ' exists'
         
-        if self.hash_path not in self.connection.listdir(self.out_path):
-            try:
-                self.connection.mkdir(self.out_path / self.hash_path)
-                if self.verbose: print 'created trial directory' 
-            except:
+        #if self.hash_path not in self.connection.listdir(self.out_path):
+        try:
+            self.connection.mkdir(self.out_path / self.hash_path)
+            if self.verbose: print 'created trial directory' 
+        except:
+            if self.verbose:
                 print 'failed to make ', self.out_path / self.hash_path
-        elif self.verbose:
-            print self.out_path / self.hash_path,  ' exists'
+        #elif self.verbose:
+        #    print self.out_path / self.hash_path,  ' exists'
 
 
     def remove_output_dir(self):
@@ -283,20 +320,20 @@ class BaseTrial(object):
         if self.verbose:
             print 'Config = ', config
         config_path = path(self.out_path / self.hash_path)
-        if Trial.CONFIG not in self.connection.listdir(config_path):
-            try:
-                conf_file = self.connection.open(
-                                            config_path / path(Trial.CONFIG),
-                                             mode='w')
-                conf_file.write(yaml.dump(config))
-                conf_file.close()
-                if self.verbose: 
-                    print 'created config.yml'
-            except:
-                print 'failed to write config.yml'
-                sys.exit(1)
-        elif self.verbose:
-            print 'config.yml already exists'
+        #if Trial.CONFIG not in self.connection.listdir(config_path):
+        try:
+            conf_file = self.connection.open(
+                                        config_path / path(Trial.CONFIG),
+                                         mode='w')
+            conf_file.write(yaml.dump(config))
+            conf_file.close()
+            if self.verbose: 
+                print 'created config.yml'
+        except:
+            print 'failed to write config.yml'
+            sys.exit(1)
+        #elif self.verbose:
+        #    print 'config.yml already exists'
 
 
     def remove_config(self):
@@ -319,10 +356,11 @@ class BaseTrial(object):
         dir_ = self.out_path / self.hash_path
         path_ = self.wrap_path / path(Trial.WRAPPER)
         command = "%s %s" %(path_, dir_)
-        stdin, stdout, stderr = self.connection.exec_command('( ' + command + ' &)')
-        output = [x for x in stdout]
-        errors = [y for y in stderr]
-        return output, errors
+        #stdin, stdout, stderr = self.connection.exec_command('( ' + command + ' &)')
+        #output = [x for x in stdout]
+        #errors = [y for y in stderr]
+        output = self.connection.exec_command('( ' + command + ' &)')
+        return output, None
 
 
     def unsubmit(self):
