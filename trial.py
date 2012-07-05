@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import traceback
 
 import paramiko
 from paramiko import SSHClient, SSHConfig
@@ -12,6 +12,9 @@ import re
 from resolve_vars import resolve, resolve_env_vars
 import sys
 import os
+from port_forward import forward_tunnel
+
+
 
 
 #TODO
@@ -20,6 +23,24 @@ import os
     can be written to a file and brought back later to check on it's status.
     Bring the functionality from the filter script.
 """
+
+
+def retry_on_fail(f, retry_count=5):
+    def new_f(self, *args, **kwargs):
+        for i in range(retry_count):
+            try:
+                retval = f(self, *args, **kwargs)
+                break
+            except Exception as e:
+                if not isinstance(e, IOError):
+                    print '[retry_on_fail] %s %s %s' % (type(e), e, e.args)
+                    traceback.print_exc()
+                    self.connect()
+                    if i >= retry_count - 1:
+                        raise
+        return retval
+    return new_f
+
 
 # Constants
 class Trial: 
@@ -54,11 +75,12 @@ class Trial:
 
 class Connection(object):
     def __init__(self, hostname='localhost', username=None, password=None, 
-                config_path='~/.ssh/config', verbose=False):
+                config_path='~/.ssh/config', port=None, verbose=False):
         
         if not hostname:
             raise ValueError('Missing hostname')
-
+        self.sftp = None
+        self.ssh = None
         ssh_config_path = path(config_path).expand()
         if not username:
             config = SSHConfig()
@@ -77,61 +99,72 @@ class Connection(object):
         if self.verbose:
             print 'Connection info: ', username, hostname, ssh_config_path
         
+       #self.ssh.set_missing_host_key_policy(
+        #    paramiko.AutoAddPolicy())
+        self.hostname = hostname
+        self.username = username
+        self.password = password
+        self.connect() 
+
+
+    def connect(self):
+        del self.sftp
+        del self.ssh
         self.ssh = paramiko.SSHClient()
         self.ssh.load_system_host_keys()
-        #self.ssh.set_missing_host_key_policy(
-        #    paramiko.AutoAddPolicy())
-            
         while True:
             try:
-                self.ssh.connect(hostname=hostname, 
-                                username=username,
-                                password=password)
+                self.ssh.connect(hostname=self.hostname, 
+                                username=self.username,
+                                password=self.password)
                 break
-            except Exception, e:
-                print 'Connection failed: ', e.args
-                password = getpass.getpass(prompt='%s@%s password:' %(username, hostname))
-                if not password:
+            except (Exception, ), why:
+                print 'Connection failed: (%s)' % e, e.args
+                self.password = getpass.getpass(prompt='%s@%s password:' %(self.username, self.hostname))
+                if not self.password:
                     sys.exit(1)
-        
         self.sftp = self.ssh.open_sftp()
-        self.username = username
 
-
+    @retry_on_fail
     def mkdir(self, dir_):
         if self.verbose:
             print 'mkdir(', dir_, ')'
         return self.sftp.mkdir(str(dir_))
 
-
+    @retry_on_fail
     def rmdir(self, dir_):
         if self.verbose:
             print 'rmdir(', dir_, ')'
         return self.sftp.rmdir(str(dir_))
 
 
+    @retry_on_fail
     def listdir(self, dir_):
         if self.verbose:
             print 'listdir( ', dir_, ')'
         return self.sftp.listdir(str(dir_))
 
 
+    @retry_on_fail
     def open(self, file_, mode='r'):
         if self.verbose:
             print 'open( ', file_, ', ', mode, ')'
         return self.sftp.open(str(file_), mode)
 
 
+    @retry_on_fail
     def exec_command(self, command):
         if self.verbose:
             print 'exec_command( ', command, ')'
         return self.ssh.exec_command(command)
 
 
+    @retry_on_fail
     def get_username(self):
         return self.username
 
 
+    @retry_on_fail
     def rename(self, old, new):
         if self.verbose:
             print 'rename( ', old, ', ', new, ')'
@@ -173,16 +206,16 @@ class DirectConnection(Connection):
 DirectConnection.open = DirectConnection._open
 
 
-class CoalitionConnection(Connection):
+class CoalitionConnection(Connection): 
 
-
+    #os.system('ssh -Nf -L%d:localhost:%d %s@%s'%(port, port, username, hostname))
+    
     def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211, 
                  username='coalition', **kwargs ):
-        #os.system('ssh -Nf -L%d:localhost:%d %s@%s'%(port, port, username, hostname))
         self.control = CoalitionControl("http://localhost:%d" %port)
         Connection.__init__(self, hostname=hostname, 
                             username=username, **kwargs)
-
+        forward_tunnel(port,'localhost', port, self.ssh.get_transport())
  
     def run(self, **kwargs):
         return self.control.add(**kwargs)
@@ -206,14 +239,18 @@ class BaseTrial(object):
 
     @property
     def connection(self):
-        if self._default_connection:
-            return self._default_connection
-        elif self._connection:     
-            return self._connection
+        #if self._default_connection:
+        #    return self._default_connection
+        #elif self._connection:     
+           # return self._connection
+        #else:
+        #    self._default_connection = self._get_default_connection()
+           # return self._default_connection
+        if self._connection:     
+           return self._connection
         else:
-            self._default_connection = self._get_default_connection()
-            return self._default_connection
-
+           self._connection = self._get_default_connection()
+           return self._connection
 
     @connection.setter
     def connection(self, value):
@@ -330,8 +367,9 @@ class BaseTrial(object):
             if self.verbose: 
                 print 'created config.yml'
         except:
-            print 'failed to write config.yml'
-            sys.exit(1)
+            pass
+            #print 'failed to write config.yml'
+        # sys.exit(1)
         #elif self.verbose:
         #    print 'config.yml already exists'
 
