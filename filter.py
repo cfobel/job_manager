@@ -334,6 +334,8 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
                                     verbose=verbose,
                                     test=test)
             else:
+                if verbose:
+                    print 'Already submitted ', p, trial[p] 
                 continue
             trial_objs.append((T, p))
         else:
