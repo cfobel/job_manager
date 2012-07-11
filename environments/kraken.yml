@@ -1,5 +1,5 @@
 HOME: ['/home/cfobel']
-WORK_PATH: ['${HOME}/scratch/orca']
+WORK_PATH: ['${HOME}/work/kraken']
 CPATH: ['${WORK_PATH}/local/include', '${HOME}/work/local/include', ]
 LD_LIBRARY_PATH: ['${WORK_PATH}/local/lib64', '${WORK_PATH}/local/lib', ]
 LIBRARY_PATH: ['${WORK_PATH}/local/lib64', '${WORK_PATH}/local/lib', ]
