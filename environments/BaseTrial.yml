@@ -1,6 +1,0 @@
-BENCHMARKS: [/home/rpattiso/pyvpr_example/benchmarks/]
-BENCHMARK_PATH: [/home/rpattiso/pyvpr_example/benchmarks/]
-JOB_MANAGER_ROOT: [/home/rpattiso/job_manager/]
-PYVPR_EXPERIMENTS: [/home/rpattiso/pyvpr_example/]
-PYVPR_RESULTS: [/home/rpattiso/sharcnet_results/]
-WORK_PATH: ['']
