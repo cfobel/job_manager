@@ -1,0 +1,16 @@
+BENCHMARK_PATH: [/var/benchmarks]
+CPATH: ['${HOME}/local/include']
+HOME: [/home/coalition]
+JOB_MANAGER_ROOT: ['${HOME}/job_manager']
+LD_LIBRARY_PATH: ['${HOME}/local/lib', '${HOME}/local/lib/tbb', /usr/lib/nvidia-current,
+  /usr/include/python2.7/]
+LIBRARY_PATH: ['${HOME}/local/lib', '${HOME}/local/lib/tbb', /usr/lib/nvidia-current,
+  /usr/include/python2.7/]
+PATH: ['${HOME}/.scripts/bin', '${HOME}/local/bin', '${HOME}/local/opt/hmetis-1.5-linux',
+  /usr/local/cuda/bin]
+PYTHONPATH: ['${HOME}/local/pylib']
+PYVPR_EXPERIMENTS: ['${HOME}/pyvpr_experiments']
+PYVPR_RESULTS: [/var/www/pyvpr_results]
+VPR_GOLD_ROOT: ['${HOME}/VPR_v5_gold']
+VPR_ROOT: ['${HOME}/vpr-v5-mod']
+WORK_PATH: ''
