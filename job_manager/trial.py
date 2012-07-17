@@ -130,6 +130,12 @@ class Connection(object):
         self.sftp = self.ssh.open_sftp()
 
     @retry_on_fail
+    def remove(self, path_):
+        if self.verbose:
+            print 'remove(', path_, ')'
+        return self.sftp.remove(str(path_))
+
+    @retry_on_fail
     def mkdir(self, dir_):
         if self.verbose:
             print 'mkdir(', dir_, ')'
@@ -363,6 +369,9 @@ class BaseTrial(object):
 
     def remove_output_dir(self):
         try:
+            files = self.connection.listdir(self.out_path/self.hash_path)
+            for f in files:
+                self.connection.remove(f)
             self.connection.rmdir(self.out_path / self.hash_path)
         except:
             print "Couldn't remove output directory"

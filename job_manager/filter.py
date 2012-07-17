@@ -307,8 +307,9 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
     args = (trial_file, sharc_filter, coalition_filter, local_filter, prog_path, result_path, run_time, priority, verbose, test)
     trial_list = [x for x in trial_iter(*args)]
 
-    print 'Creating Directories.'
-    length = max(len(trial_list), 10)
+    length = len(trial_list)
+    div_len = max(length, 10) # avoid modulo by zero
+    print 'Creating %d, Directories' % length
 
     if not trial_list:
         print 'Nothing to submit.'
@@ -319,7 +320,7 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
         assert(C is T.connection)
         T.make_output_dir()
         T.write_config()
-        if i % (length / 10) == 0:
+        if i % (div_len / 10) == 0:
             print '%.2f%%.' % (100. * i / length),
             sys.stdout.flush()
 
@@ -331,7 +332,7 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
         assert(C is T.connection)
         T.submit()
         sub.append((p, T.get_server(), T.get_id()))
-        if i % (length / 10) == 0:
+        if i % (div_len / 10) == 0:
             print '%.2f%%.' % (100. * i / length),
             sys.stdout.flush()
 
@@ -424,17 +425,25 @@ def set_as_submitted(param_file, queue):
 	entry.close()
 
 
-def reset_errors(param_file):
-	entry = shelve.open(param_file, writeback=True)
-	for k, v in entry.iteritems():
-		if k == 'default_results' or k == 'default_script':
-			continue
+def reset_errors(param_file, server):
+    entry = shelve.open(param_file, writeback=True)
+    exe_path = entry['default_script']
+    out_path = entry['default_results']
+    for k, v in entry.iteritems():
+        if k == 'default_results' or k == 'default_script':
+            continue
         if v[Trial.STATE] == Trial.ERROR:
+            if server == Trial.SHARCNET:
+                T = SharcNetTrial(out_path=out_path,
+                                    exe_path=exe_path,
+                                    params=eval(k))
+                T.remove_output_dir()
+            else:
+                print 'you must delete the result folders that errored.'
             entry[k][Trial.QUEUE] = None
             entry[k][Trial.STATE] = Trial.WAITING
             entry[k][Trial.ID] = None
-            print 'you must delete the result folders that errored.'
-	entry.close()
+    entry.close()
 
 
 def show(param_file, state_var, value):
@@ -496,18 +505,21 @@ if __name__ == "__main__":
             rehash(args.script, args.trial_name, 'sharcnet')
         else:
             print 'No Sever Specified; use -coalition or -sharcnet'
-    elif args.fake_submit:
-		if args.coalition:
-			queue = Trial.COALITION
-		elif args.sharcnet:
-			queue = Trial.SHARCNET
-		elif args.localhost:
-			queue = Trial.LOCAL
-		else:
-			print 'No Server Specified; use -coalition or -sharcnet'
-		set_as_submitted(args.param_file, queue)
-    elif args.reset_errors:
-			reset_errors(args.param_file)
+    elif args.fake_submit or args.reset_errors:
+        if args.coalition:
+            queue = Trial.COALITION
+        elif args.sharcnet:
+            queue = Trial.SHARCNET
+        elif args.localhost:
+            queue = Trial.LOCAL
+        else:
+            print 'No Server Specified; use -coalition or -sharcnet'
+        if args.fake_submit:
+            set_as_submitted(args.param_file, queue)
+        elif args.reset_errors:
+            reset_errors(args.param_file, queue)
+        else:
+            print 'No function specified'
     elif args.count:
         print count(args.param_file)
     elif args.test:
