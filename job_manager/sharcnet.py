@@ -1,10 +1,15 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 
-from trial import trial_from_config, SharcNetTrial, Trial
-from sqjobs import get_sharcnet_jobs
+
 import sys
 from path import path
 import shelve
+
+from manager import trial_from_config
+from trial import Trial
+from sharcnet_trial import SharcNetTrial
+from sqjobs import get_sharcnet_jobs
+
 
 usage=\
 """
@@ -31,7 +36,7 @@ if __name__ == "__main__":
 
     # get_all the hashes for this group of jobs.
     hashes = set(connection.listdir(sharc_trial.out_path))
-    print 'Total number of trials for db', len(hashes)
+    print 'Trials in db', len(hashes)
 
     # collect the submitted hash_paths from the sharcnet queues
     submitted = set()
@@ -40,18 +45,18 @@ if __name__ == "__main__":
         hash_q = q['output'].parent.namebase
         if hash_q in hashes:
             submitted.add(hash_q)
-    print 'Queue size', len(submitted)
+    subq = len(submitted)
+    print 'Submitted Queue', subq
 
     running = get_sharcnet_jobs(connection, 'r')
     for r in running:
         hash_r = r['output'].parent.namebase
         if hash_r in hashes:
             submitted.add(hash_r)
-    print 'Submitted Queue/Running', len(submitted)
+    print 'Running Queue', len(submitted) - subq
 
     # Check for .finished and .error files in the results dirs:
     remaining = hashes.difference(submitted)
-    print 'trials not in queue/running', len(remaining)
     finished = set()
     errored = set()
     for res_dir in remaining:
@@ -61,40 +66,41 @@ if __name__ == "__main__":
         elif '.error' in files:
             errored.add(res_dir)
 
-    print 'Errored', len(errored)
+    print 'Errors', len(errored)
     print 'Finished', len(finished)
 
     # Create trial_objects for the submitted hashes to get parameters.
     submitted_trials = []
     missing_config = set()
     for result_dir in submitted.union(finished).union(errored):
-        config_dir = sharc_trial.out_path/result_dir
-        if 'config.yml' in connection.listdir(config_dir)
-            f = connection.open(config_path)
+        config_dir = path(sharc_trial.out_path/result_dir)
+        if 'config.yml' in connection.listdir(config_dir):
+            f = connection.open(config_dir/'config.yml')
             submitted_trials.append(trial_from_config(config_dir/'config.yml', f, 'sharcnet'))
             f.close()
         else:
             missing_config.add(sharc_trial.out_path)
 
     print 'Missing Config', len(missing_config)
-    print 'Trials from db that were submitted', len(submitted)
+    print 'Trials from db that were submitted', len(submitted_trials)
     # update the database to submitted
 
     # reset the submissions in the database
     db = shelve.open(db_path, writeback=True)
-    for k, v in db:
+    for k, v in db.items():
+        if k in ['default_results', 'default_script']:
+            continue
         v['state'] = Trial.WAITING
         v['queue'] = None
         db[k] = v
 
     for trial in submitted_trials:
-        hash_path = trial.out_path.parent.namebase:
+        hash_path = trial.out_path.parent.namebase
         if hash_path in finished:
             db[str(tuple(trial.params))]['state'] = Trial.FINISHED
         elif hash_path in errored:
             db[str(tuple(trial.params))]['state'] = Trial.ERRORED
         else:
             db[str(tuple(trial.params))]['state'] = Trial.SUBMITTED
-
         db[str(tuple(trial.params))]['queue'] = Trial.SHARCNET
     db.close()

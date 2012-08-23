@@ -1,9 +1,9 @@
-#!/usr/bin/env python
-import traceback
+#! /usr/bin/env python
 
+
+import traceback
 import paramiko
 from paramiko import SSHClient, SSHConfig
-from coalition.control import CoalitionControl
 import yaml
 from path import path
 import hashlib
@@ -14,8 +14,6 @@ import sys
 import os
 from port_forward import forward_tunnel
 
-
-
 #TODO
 """
     Add __repr__ or state method so that a trial
@@ -23,11 +21,9 @@ from port_forward import forward_tunnel
     Bring the functionality from the filter script.
 """
 
-
-
-
-def retry_on_fail(f, retry_count=5):
+def retry_on_fail(f, retry_count=1):
     def new_f(self, *args, **kwargs):
+        retval = -1
         for i in range(retry_count):
             try:
                 retval = f(self, *args, **kwargs)
@@ -39,7 +35,6 @@ def retry_on_fail(f, retry_count=5):
                     self.connect()
                     if i >= retry_count - 1:
                         raise
-                    retval = None
         return retval
     return new_f
 
@@ -147,13 +142,11 @@ class Connection(object):
             print 'rmdir(', dir_, ')'
         return self.sftp.rmdir(str(dir_))
 
-
     @retry_on_fail
     def listdir(self, dir_):
         if self.verbose:
             print 'listdir( ', dir_, ')'
         return self.sftp.listdir(str(dir_))
-
 
     @retry_on_fail
     def open(self, file_, mode='r'):
@@ -161,25 +154,26 @@ class Connection(object):
             print 'open( ', file_, ', ', mode, ')'
         return self.sftp.open(str(file_), mode)
 
-
     @retry_on_fail
     def exec_command(self, command):
         if self.verbose:
             print 'exec_command( ', command, ')'
-        return self.ssh.exec_command(command)
+        stdin, stdout, stderr = self.ssh.exec_command(command)
+        #self.exit_status = stdout.channel.recv_exit_status()
+        return stdin, stdout, stderr
 
+    def get_exit_status(self):
+        return self.exit_status
 
     @retry_on_fail
     def get_username(self):
         return self.username
-
 
     @retry_on_fail
     def rename(self, old, new):
         if self.verbose:
             print 'rename( ', old, ', ', new, ')'
         return self.sftp.rename( str(old), str(new))
-
 
 class DirectConnection(Connection):
     def __init__(self):
@@ -191,14 +185,17 @@ class DirectConnection(Connection):
     def get_username(self):
         return os.getenv('LOGNAME')
 
-    def _open(self, file_, mode='r'):
+    def open(self, file_, mode='r'):
         return open(path(file_).expand(), mode)
 
     def exec_command(self, command):
         f = os.popen(command)
         output = [o for o in f]
         f.close()
-        return output
+        return None, output, None
+
+    def get_exit_status(self):
+        return 0
 
     def listdir(self, dir_):
         f = os.popen('ls -a %s' % path(dir_).expand())
@@ -211,35 +208,6 @@ class DirectConnection(Connection):
 
     def rmdir(self, dir_):
         os.rmdir(path(dir_).expand())
-
-DirectConnection.open = DirectConnection._open
-
-
-class CoalitionConnection(Connection):
-    #os.system('ssh -Nf -L%d:localhost:%d %s@%s'%(19211, 19211, 'coalition', 'tobias.socs.uoguelph.ca'))
-
-    @property
-    def control(self):
-        if not self._control:
-            self._control = CoalitionControl("http://localhost:%d" %self.port)
-            #forward_tunnel(self.port,'localhost', self.port, self.ssh.get_transport())
-        return self._control
-
-    def __init__(self, hostname='tobias.socs.uoguelph.ca', port=19211,
-                 username='coalition', **kwargs ):
-        Connection.__init__(self, hostname=hostname,
-                            username=username, **kwargs)
-        self.port = port
-        self._control = None
-
-    def run(self, **kwargs):
-        return self.control.add(**kwargs)
-
-
-class SharcNetConnection(Connection):
-    def __init__(self, hostname='orca.sharcnet.ca', username='cfobel', **kwargs):
-        Connection.__init__(self, hostname=hostname, username=username, **kwargs)
-
 
 class BaseTrial(object):
     _default_connection = None
@@ -281,12 +249,13 @@ class BaseTrial(object):
 
     def __init__(self, out_path, exe_path, params, time=10080,
                 priority=1, connection=None, verbose=False,
-                test=False, env='BaseTrial.yml', block=True):
+                test=False, env='BaseTrial.yml', block=True, memory=4):
         self.block = block
         self._connection = None
         if connection:
             self.connection = connection
         self.test = test
+        self.memory = memory
         self.verbose = verbose
         self.out_path = path(out_path)
         self.exe_path = path(exe_path)
@@ -373,8 +342,8 @@ class BaseTrial(object):
             for f in files:
                 self.connection.remove(f)
             self.connection.rmdir(self.out_path / self.hash_path)
-        except:
-            print "Couldn't remove output directory"
+        except Exception as e:
+            print "Couldn't remove output directory", e
 
 
     def write_config(self):
@@ -410,7 +379,7 @@ class BaseTrial(object):
 
     def submit(self):
         """
-        Implementation dependant:
+        Implementation dependent:
         Basically, call wrapper.py with
         self.out_path/self.out_dir/self.hash_path
         as the argument and make use of time, priority,
@@ -420,12 +389,14 @@ class BaseTrial(object):
         path_ = self.wrap_path / path(Trial.WRAPPER)
         command = "%s %s" %(path_, dir_)
         #stdin, stdout, stderr = self.connection.exec_command('( ' + command + ' &)')
-        #output = [x for x in stdout]
+        output = None
         #errors = [y for y in stderr]
 
         ssh_stdin, ssh_stdout, ssh_stderr = self.connection.exec_command('( ' + command + ' &)')
         if self.block:
-            ssh_stdout.channel.recv_exit_status()
+            output = [x for x in ssh_stdout]
+            if not isinstance(ssh_stdout, list):
+                ssh_stdout.channel.recv_exit_status()
         return output, None
 
 
@@ -462,111 +433,3 @@ class BaseTrial(object):
 
     def get_id(self):
         return self.id_
-
-
-class CoalitionTrial(BaseTrial):
-    _default_connection = None
-
-    def get_server(self):
-        return Trial.COALITION
-
-    def __init__(self, env='coalition.yml', **kwargs):
-        BaseTrial.__init__(self, env=env, **kwargs)
-
-
-    def _get_default_connection(self):
-        return CoalitionConnection(verbose=self.verbose)
-
-
-    def submit(self):
-        dir_ = self.out_path / self.hash_path
-        if self.test:
-            affin = 'test'
-        else:
-            affin = str(self.out_path.namebase)
-        self.id_ = self.connection.run(
-                         affinity=affin,
-                         dir=self.exe_path.parent,
-                         command='%s %s' %( self.wrap_path /
-                                          path(Trial.WRAPPER), dir_) )
-        # use id to get status and return (output, errors) for submission
-        return list(), list()
-
-
-    def unsubmit(self):
-        print 'command unsubmit not supported yet.'
-
-
-class SharcNetTrial(BaseTrial):
-    _default_connection = None
-    PATH = """/opt/kde3/bin:/opt/sharcnet/freepascal/current/bin:/opt/sharcnet/blcr/0.8.4/bin:/opt/sharcnet/gaussian/g09_C.01/bin:/opt/sharcnet/gaussian/g09_C.01:/opt/sharcnet/gaussian/g03_E.01/bin:/opt/sharcnet/gaussian/g03_E.01:/opt/sharcnet/lammps/10.08.2010/bin:/opt/sharcnet/r/2.10.0/bin:/opt/sharcnet/namd/2.7b3/bin:/opt/sharcnet/octave/3.2.4/snbin:/opt/sharcnet/ansys/13.0/snbin:/opt/sharcnet/ddt/3.1/bin:/opt/sharcnet/fftw/2.1.5/intel/bin:/opt/sharcnet/gromacs/4.0.5/bin:/opt/sharcnet/intel/11.0.083/icc/bin/intel64/:/opt/sharcnet/intel/11.0.083/ifc/bin/intel64/:/opt/sharcnet/sq-tm/2.4/bin:/opt/sharcnet/compile/1.3/bin:/opt/sharcnet/moab/6.1.3/bin:/opt/sharcnet/torque/2.5.12/bin:/opt/sharcnet/torque/2.5.12/sbin:/opt/sharcnet/torque/2.5.12/snbin:/opt/sharcnet/torque/2.5.12/manage:/opt/sharcnet/freepascal/current/bin:/usr/kerberos/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/sharcnet/blast/current/bin:/opt/sharcnet/openmpi/1.4.2/intel/bin:/opt/sharcnet/blast/current/bin:/home/cfobel/bin:
-"""
-    def get_server(self):
-        return Trial.SHARCNET
-
-    def __init__(self, env='sharcnet.yml', **kwargs):
-        BaseTrial.__init__(self, env=env, **kwargs)
-
-
-    def _get_default_connection(self):
-        return SharcNetConnection(verbose=self.verbose)
-
-
-    def submit(self):
-        # set the PATH environment
-        dir_ = self.out_path / self.hash_path
-        if self.test:
-            test = '--test '
-        else:
-            test = ''
-        if test:
-            print 'setting time to 60 mins for test'
-            self.time = 60
-        work_path = resolve(self.env, Trial.WORK)
-        if self.verbose:
-            print 'work path = ', work_path
-        command = "LD_LIBRARY_PATH=%s/local/lib PATH=%s\n sqsub %s -r  %d -o %s %s %s %s" % (
-                   work_path,
-                   SharcNetTrial.PATH + ":/home/%s/bin" %self.connection.get_username(),
-                   test, self.time, str(dir_/path(Trial.LOG)),
-                   self.python_path,
-                   str(self.wrap_path / path(Trial.WRAPPER)), str(dir_))
-        if self.verbose:
-            print 'Command = ', command
-        stdin, stdout, stderr = self.connection.exec_command(command)
-
-        output = [line for line in stdout]
-        errors = [line for line in stderr]
-
-        for line in output:
-            match = re.search(pattern='jobid\s+(?P<job>\d+)', string=line)
-            if match:
-                self.id_ = int(match.groupdict()['job'])
-                if self.verbose:
-                    print 'self.id = ', self.id_
-
-        return output, errors
-
-
-    def unsubmit(self):
-        self.connection.execute_command('sqkill %d' %self.id_)
-
-
-
-def trial_from_config(config_path, config_file, server):
-    config = yaml.load(config_file)
-    params = config[1]
-    exe = config[0]
-    config_path = path(config_path).abspath()
-    output_dir = config_path.parent.parent
-
-    if server == Trial.SHARCNET:
-        return SharcNetTrial(out_path=output_dir, exe_path=exe, params=params)
-    elif server == Trial.COALITION:
-        return CoalitionTrial(out_path=output_dir, exe_path=exe, params=params)
-    elif server == Trial.LOCAL:
-        return BaseTrial(out_path=output_dir, exe_path=exe, params=params)
-    else:
-        raise ValueError('Unknown Server %s' % server)
-
-

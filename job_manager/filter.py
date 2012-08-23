@@ -1,11 +1,15 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 
-from trial import CoalitionTrial, SharcNetTrial, BaseTrial, Trial, SharcNetConnection, CoalitionConnection, Connection
 import shelve
 from path import path
 import yaml
 import time
 import sys
+
+from trial import BaseTrial, Trial, Connection
+from coalition_trial import CoalitionTrial, CoalitionConnection
+from sharcnet_trial import SharcNetTrial, SharcNetConnection
+
 
 def count(trial_file):
     t = shelve.open(trial_file)
@@ -88,37 +92,19 @@ def _parse_args():
     parser.add_argument('-reset_errors', action='store_true')
     parser.add_argument('-wait', nargs=1, type=int)
     parser.add_argument('-state', nargs='+', type=str)
-    parser.add_argument('-run_time', nargs=1,
-                         dest='run_time', type=int)
-    parser.add_argument('-priority', nargs=1,
-                        dest='priority', type=int)
-    parser.add_argument('-param_file', required=True, nargs=1,
-                        dest='param_file', type=path)
-    parser.add_argument('-script', nargs=1,
-                        dest='script', type=path)
-    parser.add_argument('-trial_name', nargs=1,
-                         dest='trial_name', type=str )
+    parser.add_argument('-run_time', type=int, required=True)
+    parser.add_argument('-memory', type=int, required=True)
+    parser.add_argument('-priority', type=int, default=1)
+    parser.add_argument('-param_file', required=True, type=path)
+    parser.add_argument('-script', type=path)
+    parser.add_argument('-trial_name', type=str )
     parser.add_argument('-count', action='store_true')
 
     args = parser.parse_args()
-    if args.wait:
-        args.wait = args.wait[0]
-
-    if args.submit:
-        args.run_time = args.run_time[0]
-        if args.priority:
-            args.priority = args.priority[0]
-        else:
-            args.priority = 1
-    args.param_file = args.param_file[0]
 
     trial = shelve.open(args.param_file)
-    if args.trial_name:
-        args.trial_name = args.trial_name[0]
-    if args.script:
-        args.script = args.script[0]
-        #check for 'python' and .py
-    else:
+
+    if not args.script:
         if 'default_script' in trial:
             args.script = path(trial['default_script'])
             if 'default_results' in trial and not args.trial_name:
@@ -281,30 +267,26 @@ def set_default_result_dir(trial_file, dir_):
     trial_file['default_results'] = dir_
 
 
-def run_coalition(trial_file, prog_path, result_path, run_time, priority,
-                                                             verbose=False):
+def run_coalition(trial_file, prog_path, result_path, run_time, memory, priority, verbose=False):
     return run_parameters(trial_file, lambda x: False, lambda x: True, lambda x: False,
-                prog_path, result_path, run_time, priority, verbose=verbose)
+                prog_path, result_path, run_time, memory, priority, verbose=verbose)
 
-
-def run_sharcnet(trial_file, prog_path, result_path, run_time, priority,
-                                                            verbose=False):
+def run_sharcnet(trial_file, prog_path, result_path, run_time, memory, priority, verbose=False):
     return run_parameters(trial_file, lambda x: True, lambda x: False, lambda x: False,
-            prog_path, result_path, run_time, priority, verbose=verbose)
+            prog_path, result_path, run_time, memory, priority, verbose=verbose)
 
-def run_local(trial_file, prog_path, result_path, run_time, priority,
-                                                            verbose=False):
+def run_local(trial_file, prog_path, result_path, run_time, memory, priority, verbose=False):
     return run_parameters(trial_file, lambda x: False, lambda x: False, lambda x: True,
-            prog_path, result_path, run_time, priority, verbose=verbose)
+            prog_path, result_path, run_time, memory, priority, verbose=verbose)
 
 
 def run_parameters(trial_file, sharc_filter=lambda x: False,
                                 coalition_filter=lambda x: False,
                                 local_filter=lambda x: False,
                                  prog_path='', result_path='', run_time=10080,
-                                priority=1, verbose=False, test=False):
+                                memory=4, priority=1, verbose=False, test=False):
 
-    args = (trial_file, sharc_filter, coalition_filter, local_filter, prog_path, result_path, run_time, priority, verbose, test)
+    args = (trial_file, sharc_filter, coalition_filter, local_filter, prog_path, result_path, run_time, memory, priority, verbose, test)
     trial_list = [x for x in trial_iter(*args)]
 
     length = len(trial_list)
@@ -317,7 +299,7 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
     C = trial_list[0][0].connection
 
     for i, (T, p) in enumerate(trial_iter(*args)):
-        assert(C is T.connection)
+        #assert(C is T.connection)
         T.make_output_dir()
         T.write_config()
         if i % (div_len / 10) == 0:
@@ -329,7 +311,7 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
     print 'Submitting'
     sub = []
     for i, (T, p) in enumerate(trial_iter(*args)):
-        assert(C is T.connection)
+        #assert(C is T.connection)
         T.submit()
         sub.append((p, T.get_server(), T.get_id()))
         if i % (div_len / 10) == 0:
@@ -352,7 +334,7 @@ def run_parameters(trial_file, sharc_filter=lambda x: False,
 def trial_iter(trial_file, sharc_filter=lambda x: False,
                                 coalition_filter=lambda x: False,
                                 local_filter=lambda x: False,
-                                 prog_path='', result_path='', run_time=10080,
+                                 prog_path='', result_path='', run_time=10080, memory=4,
                                 priority=1, verbose=False, test=False):
 
     trial =  shelve.open(trial_file)
@@ -377,7 +359,8 @@ def trial_iter(trial_file, sharc_filter=lambda x: False,
                                     time=run_time,
                                     priority=priority,
                                     verbose=verbose,
-                                    test=test)
+                                    test=test,
+                                    memory=memory)
 
             elif coalition_filter(p):
                 T = CoalitionTrial(out_path=result_path,
@@ -386,7 +369,8 @@ def trial_iter(trial_file, sharc_filter=lambda x: False,
                                     time=run_time,
                                     priority=priority,
                                     verbose=verbose,
-                                    test=test)
+                                    test=test,
+                                    memory=memory)
             elif local_filter(p):
                 T = BaseTrial(out_path=result_path,
                                     exe_path=prog_path,
@@ -394,7 +378,8 @@ def trial_iter(trial_file, sharc_filter=lambda x: False,
                                     time=run_time,
                                     priority=priority,
                                     verbose=verbose,
-                                    test=test)
+                                    test=test,
+                                    memory=memory)
             else:
                 if verbose:
                     print 'Already submitted ', p, trial[p]
@@ -407,7 +392,6 @@ def test_coalition(trial_file, script='python '+Trial.EXPERIMENTS/'test.py',
     submit_all(trial_file, run_parameters(trial_file, lambda x: False, test,
                                 script, output, 3, 1,
                                 verbose=True, test=True))
-
 
 def test_sharcnet(trial_file, script='python '+Trial.EXPERIMENTS/'test.py',
                                                 output=Trial.RESULTS/'test'):
@@ -433,13 +417,13 @@ def reset_errors(param_file, server):
         if k == 'default_results' or k == 'default_script':
             continue
         if v[Trial.STATE] == Trial.ERROR:
-            if server == Trial.SHARCNET:
-                T = SharcNetTrial(out_path=out_path,
-                                    exe_path=exe_path,
-                                    params=eval(k))
-                T.remove_output_dir()
-            else:
-                print 'you must delete the result folders that errored.'
+            #if server == Trial.SHARCNET:
+            #    T = SharcNetTrial(out_path=out_path,
+            #                        exe_path=exe_path,
+            #                        params=eval(k))
+            #    T.remove_output_dir()
+            #else:
+            #    print 'you must delete the result folders that errored.'
             entry[k][Trial.QUEUE] = None
             entry[k][Trial.STATE] = Trial.WAITING
             entry[k][Trial.ID] = None
@@ -477,17 +461,20 @@ if __name__ == "__main__":
         if args.coalition:
             run_coalition(args.param_file,
                                 args.script, args.trial_name,
-                                args.run_time, args.priority,
+                                args.run_time, args.memory,
+                                args.priority,
                                 verbose=args.verbose)
         elif args.sharcnet:
             run_sharcnet(args.param_file,
                                 args.script, args.trial_name,
                                 args.run_time, args.priority,
+                                args.memory,
                                 verbose=args.verbose)
         elif args.local:
             run_local(args.param_file,
                                 args.script, args.trial_name,
                                 args.run_time, args.priority,
+                                args.memory,
                                 verbose=args.verbose)
         else:
             print 'No Server Specified; use -coalition or -sharcnet'
